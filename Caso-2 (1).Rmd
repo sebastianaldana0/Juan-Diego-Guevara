@@ -1,0 +1,4141 @@
+---
+title: "Aplicación de Algoritmos de Machine Learning para la Evaluación del Riesgo Crediticio en Leading Club"
+subtitle: "Aguirre Aldana Joan Sebastian, Barros Rayo Alejandro, Muñoz Portela Diego, Portilla Aguirre Johan Camilo"
+author: ""
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: tango
+    toc: true
+    toc_depth: 4
+    number_sections: true
+    fig_width: 8
+    fig_height: 5
+    fig_caption: true
+    dev: "png"
+    keep_md: false
+    self_contained: true
+    css: Sebastian-styles.css
+    code_folding: none
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r Librerias, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,          
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  out.width = "85%",
+  comment = ""          
+)
+#Librerias
+
+library(dplyr)
+library(tidyr)
+library(readr)
+library(tidyverse)
+library(class)
+library(caret)
+library(pROC)
+library(ggthemes)
+library(lubridate)
+library(kableExtra)
+library(knitr)
+library(ggcorrplot)
+library(scales)
+library(gridExtra)
+library(grid)
+library(ggplotify)
+library(broom)
+library(DT)
+library(dplyr)
+library(scales)
+library(htmltools)
+library(plotly)
+library(gganimate)
+```
+
+```{r tema grafias, include=FALSE}
+TS <- function() {
+  theme_minimal(base_size = 12) +
+    theme(
+      text = element_text(
+        color = "#2c2c2c"
+      ),
+      plot.title = element_text(
+        family = "Playfair Display",
+        face = "bold",
+        color = "#FF0000",
+        size = rel(1.4),
+        hjust = 0.5,
+        margin = margin(b = 15)
+      ),
+      plot.subtitle = element_text(
+        family = "Source Serif Pro",
+        color = "#CC0000",
+        size = rel(1.0),
+        hjust = 0.5,
+        margin = margin(b = 20)
+      ),
+      plot.caption = element_text(
+        family = "Source Serif Pro",
+        color = "#666666",
+        size = rel(0.8),
+        hjust = 1,
+        face = "italic"
+      ),
+      axis.title = element_text(
+        family = "Playfair Display",
+        color = "#990000",
+        size = rel(1.0),
+        face = "bold"
+      ),
+      axis.text = element_text(
+        color = "#333333",
+        size = rel(0.9)
+      ),
+      legend.title = element_text(
+        family = "Playfair Display",
+        color = "#990000",
+        face = "bold",
+        size = rel(0.9)
+      ),
+      legend.text = element_text(
+        color = "#333333",
+        size = rel(0.8)
+      ),
+      panel.background = element_rect(fill = "#FFFDF5", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.grid.major = element_line(
+        color = "#FFE5E5",
+        linewidth = 0.3,
+        linetype = "solid"
+      ),
+      panel.grid.minor = element_line(
+        color = "#FFE5E5",
+        linewidth = 0.1,
+        linetype = "solid"
+      ),
+      panel.border = element_rect(
+        fill = NA,
+        color = "#FFE5E5",
+        linewidth = 0.5
+      ),
+      axis.line = element_line(
+        color = "#FF3333",
+        linewidth = 0.5
+      ),
+      axis.ticks = element_line(
+        color = "#FF3333",
+        linewidth = 0.5
+      ),
+      legend.background = element_rect(
+        fill = "#FFFDF5",
+        color = "#FFE5E5"
+      ),
+      legend.key = element_rect(
+        fill = "#FFFDF5",
+        color = NA
+      ),
+      legend.position = "top",
+      legend.justification = "center",
+      plot.margin = margin(20, 20, 20, 20),
+      panel.spacing = unit(1, "lines"),
+      strip.background = element_rect(
+        fill = "#FF0000",
+        color = "#CC0000"
+      ),
+      strip.text = element_text(
+        family = "Playfair Display",
+        color = "white",
+        face = "bold",
+        size = rel(0.9)
+      )
+    )
+}
+
+scale_fill_sebastian <- function(palette = "main", ...) {
+  scale_fill_manual(
+    values = c(
+      sebastian_colors["primary_red"],
+      sebastian_colors["secondary_red"], 
+      sebastian_colors["accent_red"],
+      sebastian_colors["gold"],
+      sebastian_colors["dark_red"]
+    ),
+    ...
+  )
+}
+
+
+
+SC <- c(
+  primary_red = "#FF0000",
+  secondary_red = "#CC0000", 
+  accent_red = "#FF3333",
+  light_red = "#FFE5E5",
+  dark_red = "#990000",
+  gold = "#FFD100",
+  parchment = "#FFFDF5",
+  white = "#FFFFFF",
+  gray_text = "#333333"
+)
+
+set_sebastian_theme <- function() {
+  theme_set(TS())
+  update_geom_defaults("bar", list(fill = sebastian_colors["primary_red"]))
+  update_geom_defaults("col", list(fill = sebastian_colors["primary_red"]))
+  update_geom_defaults("point", list(color = sebastian_colors["primary_red"]))
+  update_geom_defaults("line", list(color = sebastian_colors["primary_red"]))
+  update_geom_defaults("boxplot", list(fill = sebastian_colors["light_red"]))
+  update_geom_defaults("violin", list(fill = sebastian_colors["light_red"]))
+  update_geom_defaults("density", list(fill = sebastian_colors["light_red"]))
+}
+  
+scale_color_sebastian <- function(palette = "main", ...) {
+  scale_color_manual(
+    values = c(
+      sebastian_colors["primary_red"],
+      sebastian_colors["secondary_red"],
+      sebastian_colors["accent_red"],
+      sebastian_colors["gold"],
+      sebastian_colors["dark_red"]
+    ),
+    ...
+  )
+}
+
+```
+
+
+```{r Tema, include=FALSE}
+Sebastian_css <- "
+
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@300;400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@300;400;600&display=swap');
+
+:root {
+  --primary-red: #FF0000;       /* Rojo puro y vibrante */
+  --secondary-red: #CC0000;     /* Rojo más oscuro para contraste */
+  --accent-red: #FF3333;        /* Rojo más suave para detalles */
+  --light-red: #FFE5E5;         /* Fondo suave rojo clarísimo */
+  --dark-red: #990000;          /* Rojo oscuro para texto o bordes */
+  --gold: #FFD100;              /* Dorado Univalle para acentos */
+  --parchment: #FFFDF5;         /* Base crema suave */
+  --W: #FFFFFF;
+  --gris-texto: #333333;
+}
+
+body {
+  font-family: 'Source Serif Pro', 'Times New Roman', serif;
+  font-weight: 400;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background-color: var(--parchment);
+  font-size: 16px;
+}
+
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  box-shadow: 0 0 30px rgba(122, 28, 28, 0.08);
+  border-left: 1px solid var(--light-red);
+  border-right: 1px solid var(--light-red);
+}
+
+
+/* ENCABEZADOS ACADÉMICOS - CORREGIDOS A ROJOS */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', 'Times New Roman', serif;
+  color: var(--primary-red) !important;
+  border-bottom: none;
+  margin-top: 2.5rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 3px double var(--gold);
+  letter-spacing: -0.5px;
+  color: var(--primary-red) !important;
+}
+
+h2 {
+  font-size: 2.1rem;
+  border-left: 5px solid var(--accent-red);
+  padding-left: 1.2rem;
+  margin-top: 3.5rem;
+  background: linear-gradient(90deg, var(--light-red) 0%, transparent 100%);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  color: var(--secondary-red) !important;
+}
+
+h3 {
+  font-size: 1.6rem;
+  color: var(--accent-red) !important;
+  border-bottom: 2px solid var(--light-red);
+  padding-bottom: 0.7rem;
+  margin-top: 2.5rem;
+}
+
+h4 {
+  font-size: 1.4rem;
+  color: var(--secondary-red) !important;
+  margin-top: 2rem;
+  font-weight: 600;
+}
+
+h5 {
+  font-size: 1.2rem;
+  color: var(--accent-red) !important;
+  margin-top: 1.5rem;
+}
+
+h6 {
+  font-size: 1.1rem;
+  color: var(--dark-red) !important;
+  margin-top: 1.5rem;
+  font-style: italic;
+}
+
+/* SUBTÍTULOS Y ELEMENTOS DE TEXTO */
+.subtitle {
+  color: var(--W) !important;
+  font-family: 'Source Serif Pro', serif;
+  font-size: 1.3rem;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-weight: 400;
+}
+
+.caption {
+  color: var(--accent-red) !important;
+  font-family: 'Source Serif Pro', serif;
+  font-size: 0.95rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+
+
+
+/* HEADER ACADÉMICO */
+.page-header {
+  background: linear-gradient(135deg, var(--dark-red) 0%, var(--primary-red) 100%) !important;
+  color: white;
+  padding: 5rem 2rem !important;
+  text-align: center;
+  font-family: 'Playfair Display', serif;
+  border-bottom: 5px solid var(--gold);
+  margin-bottom: 3rem !important;
+}
+
+.page-header h1 {
+  color: white !important;
+  font-size: 3.3rem;
+  font-weight: 700;
+  border-bottom: none;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+  letter-spacing: -0.5px;
+}
+
+.page-header h2 {
+  color: rgba(255,255,255,0.95) !important;
+  font-size: 1.9rem;
+  font-weight: 300;
+  border-left: none;
+  padding-left: 0;
+  font-family: 'Source Serif Pro', serif;
+  background: none;
+  padding: 0;
+}
+
+/* FOOTER ACADÉMICO */
+.academic-footer {
+  text-align: center;
+  color: var(--secondary-red);
+  margin-top: 5rem;
+  padding: 3rem 2rem;
+  border-top: 3px double var(--light-red);
+  font-family: 'Playfair Display', serif;
+  background: linear-gradient(135deg, var(--parchment) 0%, white 100%);
+  border-radius: 8px 8px 0 0;
+}
+
+/* MEJORAS PARA GRÁFICOS */
+.plotly.html-widget {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  padding: 1rem;
+  background: white;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+  
+  h1 {
+    font-size: 2.2rem;
+  }
+  
+  h2 {
+    font-size: 1.8rem;
+  }
+  
+  .page-header {
+    padding: 3rem 1rem !important;
+  }
+  
+  .tocify {
+    width: 280px !important;
+  }
+  
+  .chunk-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}
+
+/* Agrega esto al final de tu Sebastian-styles.css */
+
+/* SISTEMA DE TOGGLE PARA CÓDIGO */
+.code-toggle-container {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--light-red);
+  border-radius: 10px;
+  border-left: 4px solid var(--accent-red);
+  box-shadow: 0 4px 12px rgba(179, 8, 56, 0.1);
+}
+
+.code-toggle-btn {
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(122, 28, 28, 0.3);
+  margin: 0 0.5rem;
+}
+
+.code-toggle-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(122, 28, 28, 0.4);
+  background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
+}
+
+/* CONTENEDORES DE CÓDIGO CON TOGGLE */
+.code-chunk {
+  margin: 2rem 0;
+  border: 2px solid var(--light-red);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+}
+
+.code-header {
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.code-header:hover {
+  background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
+}
+
+.chunk-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.toggle-icon {
+  font-family: 'Source Serif Pro', serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.code-content {
+  background: #1e1e1e;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.code-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.code-content.expanded {
+  max-height: 5000px;
+  opacity: 1;
+}
+
+
+/* BOTÓN FLOTANTE GLOBAL */
+.global-code-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
+  color: white;
+  border: none;
+  padding: 0.8rem 1.2rem;
+  border-radius: 50px;
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(179, 8, 56, 0.4);
+  transition: all 0.3s ease;
+}
+
+.global-code-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(179, 8, 56, 0.6);
+}
+
+/* INDICADOR DE ESTADO */
+.code-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.code-status.visible {
+  background: #4CAF50;
+}
+
+.code-status.hidden {
+  background: #ff9800;
+}
+* TOC - TABLA DE CONTENIDOS MEJORADA */
+#TOC {
+  background: linear-gradient(135deg, var(--parchment) 0%, white 100%) !important;
+  border: 2px solid var(--light-red) !important;
+  border-radius: 12px !important;
+  padding: 2rem !important;
+  margin: 2rem 0 !important;
+  box-shadow: 0 4px 20px rgba(122, 28, 28, 0.1) !important;
+  font-family: 'Playfair Display', serif !important;
+}
+
+#TOC::before {
+  content: \"Tabla de Contenidos\";
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary-red);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--gold);
+}
+
+#TOC ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+}
+
+#TOC li {
+  margin: 0.8rem 0 !important;
+  padding: 0 !important;
+  border-left: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+#TOC li:hover {
+  border-left-color: var(--accent-red);
+  background: var(--light-red);
+}
+
+#TOC a {
+  color: var(--secondary-red) !important;
+  text-decoration: none !important;
+  font-family: 'Source Serif Pro', serif !important;
+  font-size: 1rem !important;
+  padding: 0.5rem 1rem !important;
+  display: block !important;
+  transition: all 0.3s ease !important;
+  border-radius: 4px;
+}
+
+#TOC a:hover {
+  color: var(--primary-red) !important;
+  background: var(--light-red) !important;
+  transform: translateX(5px);
+}
+
+#TOC ul ul {
+  padding-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+}
+
+#TOC ul ul a {
+  font-size: 0.95rem !important;
+  color: var(--dark-red) !important;
+  padding: 0.3rem 1rem !important;
+}
+
+#TOC ul ul li {
+  margin: 0.5rem 0 !important;
+}
+
+/* ESTILOS PARA EL CÓDIGO - TEMA RSTUDIO (CLARO) */
+pre.sourceCode {
+  display: block !important;
+  background: var(--W) !important;
+  color: var(--gris-texto) !important;
+  padding: 15px !important;
+  border: none !important;
+  border-radius: 8px !important;
+  overflow-x: auto;
+  margin: 15px 0 !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border-left: 4px solid var(--primary-red) !important;
+  box-shadow: 0 2px 4px rgba(179, 25, 66, 0.1);
+}
+
+
+pre.sourceCode code {
+  background: transparent !important;
+  color: #333 !important;
+  padding: 0 !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+}
+
+
+pre.sourceCode code .kw { color: var(--primary-red); font-weight: bold; } /* Keywords */
+pre.sourceCode code .dt { color: var(--gold); } /* Data types */
+pre.sourceCode code .dv { color: var(--gold); } /* Numeric values */
+pre.sourceCode code .st { color: var(--secondary-red); } /* Strings */
+pre.sourceCode code .co { color: #666; font-style: italic; } /* Comments */
+pre.sourceCode code .ot { color: var(--primary-red); } /* Operators */
+pre.sourceCode code .fu { color: var(--primary-red); } /* Functions */
+pre.sourceCode code .va { color: var(--accent-red); } /* Variables */
+pre.sourceCode code .ident { color: var(--accent-red); } /* Identifiers */
+
+/* Estilo para números de línea si se requieren */
+pre.sourceCode .number {
+  color: var(--secondary-red);
+  font-weight: bold;
+}
+
+/* Scrollbar personalizado para el bloque de código */
+pre.sourceCode::-webkit-scrollbar {
+  height: 8px;
+  background-color: var(--W);
+}
+
+pre.sourceCode::-webkit-scrollbar-thumb {
+  background-color: var(--gold);
+  border-radius: 4px;
+}
+
+pre.sourceCode::-webkit-scrollbar-thumb:hover {
+  background-color: var(--gold);
+}
+
+.main-content p {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  margin-bottom: 1.2rem;
+}
+
+/* ESTILOS PARA TABLAS ACADÉMICAS */
+.academic-table {
+  font-family: 'Source Serif Pro', serif !important;
+  border: 2px solid var(--light-red) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 20px rgba(122, 28, 28, 0.1) !important;
+  margin: 2rem auto !important;
+}
+
+.academic-table thead th {
+  font-family: 'Playfair Display', serif !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  padding: 1.2rem !important;
+  border-bottom: 3px solid var(--gold) !important;
+}
+
+.academic-table tbody tr {
+  transition: all 0.3s ease !important;
+}
+
+.academic-table tbody tr:hover {
+  background-color: var(--light-red) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(179, 8, 56, 0.1) !important;
+}
+
+.academic-table td {
+  padding: 1rem !important;
+  border-bottom: 1px solid var(--light-red) !important;
+  vertical-align: top !important;
+}
+
+.academic-table caption {
+  caption-side: top !important;
+  font-family: 'Playfair Display', serif !important;
+  font-weight: 700 !important;
+  color: var(--primary-red) !important;
+  font-size: 1.3rem !important;
+  margin-bottom: 1rem !important;
+  padding: 1rem !important;
+  background: linear-gradient(90deg, var(--light-red) 0%, transparent 100%) !important;
+  border-left: 5px solid var(--accent-red) !important;
+}
+
+/* Pie de tabla */
+.academic-table tfoot tr {
+  background: var(--parchment) !important;
+}
+
+.academic-table tfoot td {
+  border-top: 2px dashed var(--gold) !important;
+  font-style: italic !important;
+  color: var(--secondary-red) !important;
+  padding: 1rem !important;
+  text-align: center !important;
+}
+
+
+
+"
+
+writeLines(Sebastian_css, "Sebastian-styles.css")
+```
+
+# Introducción {.page-header}
+
+::: academic-card
+Una correcta evaluación del riesgo crediticio termina siendo un pilar fundamental en la gestión financiera moderna.
+Es por esto que en contextos de otorgamiento masivo de préstamos la capacidad para diferenciar con precisión entre solicitantes de bajo y alto riesgo de incumplimiento determina, en gran medida, la sostenibilidad de la cartera y la rentabilidad de la entidad.
+Los procesos de crédito han evolucionado hacia procedimientos fundamentados en modelos estadísticos y algoritmos de aprendizaje automático, permitiendo decisiones más objetivas, replicables y escalables.
+
+Lending Club es una plataforma de crédito en línea que funciona como un mercado (peer-to-peer) para el otorgamiento de préstamos personales, conectando directamente a solicitantes con inversionistas.
+Mediante procesos digitales estándar, la plataforma recopila información proporcionada por el solicitante (como lo pueden ser ingresos, propósito del préstamo, puntajes crediticios, entre otros) y emplea reglas y modelos de evaluación de riesgo para decidir la aprobación y las condiciones del préstamo.
+La disponibilidad pública de historiales de préstamos originados en esta plataforma ha convertido a sus bases de datos en una fuente de referencia para la investigación en scoring crediticio y modelado del incumplimiento, permitiendo analizar patrones de morosidad y evaluar algoritmos de clasificación aplicables a procesos operativos de riesgo.
+
+En este trabajo se emplea esta base de datos pública (Lending Club) como insumo para un ejercicio de clasificación supervisada, cuyo propósito es estimar la probabilidad de incumplimiento de préstamos personales.
+El análisis toma como referencia solicitudes reales registradas en la plataforma y se centra en información disponible al momento de la decisión crediticia, con el fin de reproducir condiciones operativas reales de otorgamiento.
+Este enfoque permite estudiar la capacidad predictiva de modelos estadísticos clásicos (regresión logística) frente a algoritmos basados en dinstancias (KNN), así como evaluar su aplicabilidad práctica en escenarios de scoring crediticio.
+
+La importancia de clasificar de manera adecuada el riesgo de incumplimiento es múltiple.
+En primer lugar, reduce la exposición a pérdidas por préstamos morosos y optimiza el balance entre aceptación y rechazo de solicitudes, mejorando la rentabilidad ajustada por riesgo.
+En segundo lugar, una clasificación robusta contribuye a la inclusión financiera responsable; ya que, al identificar correctamente perfiles de riesgo, las entidades pueden diseñar productos y precios diferenciados que incentiven el acceso al crédito sin comprometer la sostenibilidad.
+Por último, la transparencia e interpretabilidad de los modelos (especialmente relevante en entornos regulatorios) facilita la auditoría de decisiones y la incorporación de salvaguardas frente a sesgos sistémicos.
+
+El presente estudio tuvo como propósito desarrollar y comparar modelos de clasificación supervisada que permitieran predecir el riesgo de incumplimiento en préstamos personales, con el fin de aportar evidencia técnica para la toma de decisiones de crédito basadas en datos.
+Desde un punto de vista metodológico general, el estudio adopta el paradigma del aprendizaje supervisado: se ajustan modelos sobre un subconjunto de observaciones con estado conocido (pagado / incumplido) y se evalúa su desempeño en datos independientes.
+La comparación entre regresión logística y KNN se orienta a contrastar dos aproximaciones distintas: una paramétrica y fácilmente interpretable (logit) frente a una no paramétrica basada en proximidad en el espacio de características (KNN).
+La evaluación se realiza mediante métricas de clasificación estándares (exactitud, sensibilidad, especificidad) y métricas de discriminación (AUC de la curva ROC), y se complementa con validación cruzada y búsqueda de hiperparámetros para garantizar robustez en la selección de modelos.
+Los resultados serán interpretados en términos estadísticos.
+:::
+
+# Metodología
+
+::: academic-card
+El presente estudio adoptó un enfoque de aprendizaje supervisado orientado a la clasificación binaria del estado de pago de préstamos (Pagado/Incumplido), implementado mediante dos familias de algoritmos: K-Vecinos Más Cercanos (KNN) y regresión logística (Logit). La metodología se estructuró en cinco etapas fundamentales que garantizaron la reproducibilidad, validez y comparabilidad de los resultados.
+
+## Preparación y construcción de la base de datos
+
+Se utilizó la base de datos pública de Lending Club (2007-2018), plataforma de préstamos peer-to-peer que conecta solicitantes con inversionistas. El conjunto original fue sometido a un proceso de limpieza que incluyó la selección de variables relevantes (ingreso anual, relación deuda/ingreso, monto del préstamo, puntaje FICO, propósito del préstamo y estado de pago), renombrado de variables para facilitar su interpretación, y aplicación de filtros para eliminar valores extremos (ingresos superiores a USD 250,000 y relaciones deuda/ingreso mayores al 50%).
+
+Para abordar el desbalance entre clases, se implementó una estrategia de muestreo estratificado balanceado mediante undersampling, seleccionando aleatoriamente 5,000 observaciones de cada clase (Pagado/Incumplido), resultando en una muestra final de 10,000 registros equitativamente distribuidos. Esta decisión metodológica evitó sesgos derivados del desbalance natural y facilitó la evaluación equilibrada del desempeño de los modelos.
+
+La variable categórica propósito del préstamo fue reagrupada en categorías más amplias mediante colapso factorial: Consolidación (consolidación de deuda y tarjetas de crédito), Casa/Vehículo (mejoras del hogar, compras mayores, automóvil, vivienda), Negocio/Estudio (pequeños negocios y educación), y Otros (categorías residuales). La variable dependiente Estado se codificó como factor binario con niveles "Pagado" (0) e "Incumplido" (1).
+
+## Partición de datos
+Con una semilla aleatoria fija (set.seed(0408)) para garantizar reproducibilidad, se realizó una partición aleatoria estratificada 75/25: el 75% de las observaciones (7,500 registros) se destinó al conjunto de entrenamiento para ajustar los modelos, mientras que el 25% restante (2,500 registros) se reservó como conjunto de prueba independiente para evaluar el desempeño fuera de muestra. Esta proporción sigue las recomendaciones estándares en aprendizaje supervisado, equilibrando la disponibilidad de datos para el entrenamiento con la necesidad de validación externa robusta.
+
+## Preprocesamiento de variables
+Dada la sensibilidad del algoritmo KNN a las diferencias de escala entre variables, se aplicó normalización mediante centrado y escalado (estandarización z-score) a todas las variables numéricas utilizando la función preProcess() del paquete caret. Este proceso consistió en restar la media y dividir por la desviación estándar de cada variable en el conjunto de entrenamiento, aplicando posteriormente la misma transformación al conjunto de prueba para evitar fugas de información (data leakage).
+
+Para la regresión logística, aunque la normalización no es estrictamente necesaria, se mantuvo el preprocesamiento para garantizar comparabilidad entre modelos y facilitar la interpretación de los coeficientes estimados.
+
+## Modelado y selección de hiperparámetros
+### Modelo K-Vecinos Más Cercanos (KNN)
+Se implementaron dos variantes del algoritmo KNN:
+
+KNN básico (paquete class): Se evaluaron múltiples valores de k (número de vecinos) en el rango 1 a 200 mediante un ciclo iterativo que calculó la precisión del modelo en el conjunto de prueba para cada valor. El valor óptimo de k se seleccionó como aquel que maximizó la exactitud fuera de muestra. Esta implementación utilizó únicamente variables numéricas debido a las limitaciones del paquete class para manejar variables categóricas directamente.
+
+KNN avanzado (paquete caret): Se utilizó la función train() que integró validación cruzada estratificada de 5 pliegues (5-fold cross-validation), permitiendo una estimación más robusta del desempeño del modelo y reduciendo el riesgo de sobreajuste. La búsqueda de hiperparámetros exploró valores de k entre 1 y 150 mediante el argumento tuneLength = 150, optimizando según el área bajo la curva ROC (AUC) como métrica objetivo. Esta variante permitió incorporar tanto variables numéricas como la variable categórica propósito agrupado mediante conversión automática a variables dummy, enriqueciendo la información disponible para el modelo.
+
+El algoritmo KNN opera clasificando nuevas observaciones según la mayoría de clases de sus k vecinos más cercanos en el espacio de características, utilizando distancia euclidiana como medida de proximidad. Su naturaleza no paramétrica le permite capturar patrones locales complejos sin asumir relaciones funcionales específicas entre predictores y respuesta.
+
+### Regresión Logística (Logit)
+El modelo de regresión logística se estimó mediante la función glm() con familia binomial y función de enlace logit. Este enfoque paramétrico modela el logaritmo del odds ratio (razón de probabilidades) como combinación lineal de las variables predictoras
+Las probabilidades predichas se obtienen mediante transformación logística inversa, resultando en valores entre 0 y 1 que representan la probabilidad estimada de incumplimiento.
+
+Para determinar el umbral de clasificación óptimo, se empleó el índice de Youden extraído de la curva ROC, que maximiza la suma de sensibilidad y especificidad: 
+Youden
+:::
+
+## Definición de las variables
+
+Las variables utilizadas en el estudio se organizan en dos grupos: dependientes e independientes.
+La variable dependiente seleccionada es el estado de pago de la persona (**Estado**), construida a partir del indicador Default y se codificó como factor con niveles “Pagado” (no default) y “Incumplido” (default).
+Esta variable refleja el resultado del contrato crediticio y es una medida directa del riesgo de incumplimiento, por lo que su correcta definición y codificación es central para cualquier ejercicio de scoring, ya que no solo indica la ocurrencia del impago, sino que también sirve como referencia para estimar probabilidades de default y calibrar los umbrales de decisión en procesos de aprobación crediticia.
+
+Entre las variables independientes se incorporaron predictores financieros y de propósito del préstamo que, según la teoría del riesgo y la práctica del credit scoring, guardan relación con la capacidad de pago y la propensión al incumplimiento.
+El ingreso anual declarado por el solicitante **Ingreso** se emplea como variable de la capacidad de repago; a mayor ingreso disponible se espera una menor probabilidad de default, dado que permite absorber obligaciones adicionales y enfrentar eventos adversos sin perder la capacidad de servicio de la deuda.
+No obstante, la medida declarativa del ingreso puede presentar sesgos por subdeclaración o variabilidad temporal, por lo que su interpretación debe hacerse con cuidado.
+
+La **Relacion deuda/ingreso** sintetiza la carga financiera del solicitante al relacionar obligaciones vigentes con su ingreso.
+Un DTI (Debt-to-Income, que viene siendo la relación deuda/ingreso) elevado indica que una fracción significativa del ingreso ya está comprometida con otras deudas, lo que incrementa la vulnerabilidad ante shocks y aumenta la probabilidad de incumplimiento.
+Se toma en cuenta ya que permite captar no solo la magnitud del endeudamiento sino también la presión relativa sobre la liquidez del hogar o individuo.
+
+El monto solicitado **Monto prestamo** incorpora la dimensión contractual del crédito, que son los préstamos de mayor cuantía: los cuales, sin ajustes proporcionales en condiciones o capacidad de pago, tienden a elevar el riesgo de default por aumentar la carga mensual y alargar el horizonte de exposición.
+Además, el monto solicitado puede interactuar con otras variables (por ejemplo, ingreso o FICO) para dibujar perfiles diferenciados de riesgo.
+Su inclusión facilita distinguir situaciones en las que un mismo monto resulta asumible o riesgoso según el contexto financiero del solicitante.
+
+El puntaje crediticio **Puntaje FICO** funciona como un indicador consolidado del historial crediticio y de la probabilidad observada de cumplimiento en períodos previos.
+Puntajes más altos se asocian sistemáticamente con menor probabilidad de impago, pues reflejan comportamientos de pago estables, menor incidencia de morosidad previa y hábitos financieros más conservadores.
+Por su carácter informativo y su uso extendido en la industria, el puntaje FICO aporta a la discriminación del riesgo y suele mostrar efectos significativos en modelos paramétricos y no paramétricos.
+
+El propósito del préstamo reagrupado **Proposito agrupado** captura el destino del crédito, como lo puede ser una consolidación de deuda, compra de vivienda o vehículo, inversión en negocio, educación.
+Refleja diferencias cualitativas en la naturaleza y prioridad del gasto.
+Distintos propósitos implican perfiles de riesgo heterogéneos, es decir, un préstamo para consolidación de deuda puede indicar una situación financiera tensionada, mientras que un préstamo para inversión productiva o educación puede asociarse a retornos que faciliten el repago.
+
+```{r - Variables}
+
+variables_modelo <- data.frame(
+  Variable = c("Estado", "Ingreso", "Relación deuda/ingreso",
+               "Monto préstamo", "Puntaje FICO", "Propósito", "Binaria"),
+  
+  Descripción = c(
+    "Variable dependiente que representa el resultado final del crédito.",
+    "Ingreso anual declarado por el solicitante, indicador de capacidad de pago.",
+    "Ratio financiero que mide la carga de endeudamiento frente al ingreso.",
+    "Valor del préstamo solicitado por el cliente.",
+    "Puntaje crediticio que resume el historial de crédito del solicitante.",
+    "Motivo declarado del préstamo, agrupado en categorías mayores.",
+    "Versión numérica de la variable dependiente usada en el modelo."
+  ),
+  
+  Tipo_Variable = c(
+    "Categórica (binaria)",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Categórica (agrupada)",
+    "Binaria (numérica)"
+  ),
+  
+  Ejemplos_Notas = c(
+    "Ej: 'Pagado', 'Incumplido'.",
+    "En dólares anuales.",
+    "Proporción (ej. 0.35).",
+    "Monto del préstamo en USD.",
+    "Rango típico: 300 – 850.",
+    "Ej: 'Consolidación', 'Negocio', 'Otros'.",
+    "0 = Pagado, 1 = Incumplido."
+  )
+)
+
+
+tabla_variables <- kable(
+  variables_modelo,
+  format = "html",
+  col.names = c("Variable", "Descripción", "Tipo de Variable", "Ejemplos / Notas"),
+  align = c('l', 'l', 'l', 'l'),
+  caption = "Tabla 1. Variables utilizadas en el Modelo de Riesgo Crediticio"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#990000", color = "white", bold = TRUE) %>%
+  row_spec(1:7, background = "#FFFDF5") %>%
+  column_spec(1, bold = TRUE, width = "3cm") %>%
+  column_spec(2, width = "6cm") %>%
+  column_spec(3, width = "3cm") %>%
+  column_spec(4, width = "3.5cm") %>%
+  footnote(
+    general = "Elaboración propia con base en el dataset Lending Club (2007-2018).",
+    general_title = "Fuente: ",
+    footnote_as_chunk = TRUE
+  )
+
+tabla_variables
+```
+
+## Base de datos
+
+```{r Base de datos, warning = FALSE, message = FALSE}
+lending_raw <- read_csv("LC_loans_granting_model_dataset.csv", guess_max = 20000)
+
+lending_base <- lending_raw %>%
+  select(revenue, dti_n, loan_amnt, fico_n, Default, purpose, issue_d) %>%
+  rename(
+    ingreso = revenue,
+    relacion_deuda_ingreso = dti_n,
+    monto_prestamo = loan_amnt,
+    puntaje_fico = fico_n,
+    estado_pago = Default,
+    proposito = purpose
+  ) %>%
+  mutate(
+    fecha_emision = parse_date_time(issue_d, orders = "b-Y", locale = "en_US"),
+    Año = year(fecha_emision),
+    proposito = as.factor(proposito),
+    proposito_agrupado = fct_collapse(
+      proposito,
+      Consolidacion = c("debt_consolidation", "credit_card"),
+      "Casa/Vehiculo" = c("home_improvement", "major_purchase", "car", "house"),
+      "Negocio/Estudio" = c("small_business", "educational")
+    ),
+    proposito_agrupado = fct_other(
+      proposito_agrupado,
+      keep = c("Consolidacion", "Casa/Vehiculo", "Negocio/Estudio"),
+      other_level = "Otros"
+    ),
+    estado_pago = fct_recode(as.factor(estado_pago), "Pagado" = "0", "Incumplido" = "1")
+  ) %>%
+  select(-proposito, -issue_d, -fecha_emision) %>% 
+  filter(ingreso <= 250000, relacion_deuda_ingreso <= 50) %>%
+  drop_na()
+
+set.seed(0408)
+
+
+count_pagado <- sum(lending_base$estado_pago == "Pagado")
+count_incumplido <- sum(lending_base$estado_pago == "Incumplido")
+
+sample_size <- min(5000, count_pagado, count_incumplido)
+
+paga <- lending_base %>% 
+  filter(estado_pago == "Pagado") %>% 
+  sample_n(sample_size)
+
+nopaga <- lending_base %>% 
+  filter(estado_pago == "Incumplido") %>% 
+  sample_n(sample_size)
+
+Base_datos <- bind_rows(paga, nopaga) %>% 
+  select(Año, ingreso, relacion_deuda_ingreso, monto_prestamo, puntaje_fico, proposito_agrupado, estado_pago) %>%
+  rename(
+    Ingreso = ingreso,
+    Relacion_deuda_ingreso = relacion_deuda_ingreso,
+    Monto_prestado = monto_prestamo,
+    FICO = puntaje_fico,
+    Proposito = proposito_agrupado,
+    Estado = estado_pago
+  )
+
+Base_datos <- Base_datos[sample(nrow(Base_datos)), ] %>% 
+  mutate(Relacion_deuda_ingreso=Relacion_deuda_ingreso/100)
+
+
+Base_datos_formateada <- Base_datos %>%
+  mutate(
+    Ingreso_formateado = scales::dollar(Ingreso, accuracy = 1),
+    Monto_prestado_formateado = scales::dollar(Monto_prestado, accuracy = 1),
+    Relacion_deuda_ingreso_formateado = scales::percent(Relacion_deuda_ingreso, accuracy = 0.1),
+    FICO_formateado = as.integer(FICO)
+  )
+
+tabla_interactiva <- Base_datos %>%
+  datatable(
+    colnames = c(
+      "Año",
+      "Ingreso Anual (USD)", 
+      "Relación Deuda/Ingreso", 
+      "Monto del Préstamo (USD)",
+      "Puntaje FICO", 
+      "Propósito del Préstamo", 
+      "Estado de Pago"
+    ),
+    filter = 'top',
+    extensions = c('Buttons', 'Scroller'),
+    options = list(
+      pageLength = 10,
+      dom = 'Bfrtip',
+      scrollX = TRUE,
+      scrollY = "400px",
+      scroller = TRUE,
+      buttons = list('copy', 'csv', 'excel', 'pdf', 'print'),
+      language = list(
+        url = '//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json'
+      )
+    ),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: center; color: #FF0000; font-family: "Playfair Display"; font-size: 1.3rem; font-weight: bold;',
+      'Tabla 2. Base de Datos de Préstamos - Dataset Lending Club'
+    ),
+    class = 'row-border stripe hover order-column',
+    rownames = FALSE,
+    width = '100%'
+  ) %>%
+  formatCurrency(
+    columns = c('Ingreso', 'Monto_prestado'),
+    currency = '$', digits = 0, before = TRUE
+  ) %>%
+  formatRound(
+    columns = 'FICO',
+    digits = 0
+  ) %>%
+  formatStyle(
+    'Estado',
+    target = 'row',
+    backgroundColor = styleEqual('Incumplido', '#FFE6E6')
+  ) %>%
+  formatStyle(
+    'Estado',
+    backgroundColor = styleEqual('Incumplido', '#FF6B6B'),
+    color = styleEqual('Incumplido', 'white'),
+    fontWeight = styleEqual('Incumplido', 'bold')
+  ) %>%
+  formatStyle(
+    'Relacion_deuda_ingreso',
+    backgroundColor = styleInterval(
+      cuts = c(30, 40), 
+      values = c('white', '#FFF0F0', '#FFB8B8')
+    )
+  ) %>%
+  formatStyle(
+    'FICO',
+    backgroundColor = styleInterval(
+      cuts = c(600, 700),
+      values = c('#FF6B6B', '#FFD8D8', 'white')
+    )
+  )
+
+
+tabla_interactiva <- tabla_interactiva %>%
+  htmlwidgets::prependContent(
+    htmltools::tags$style(
+      htmltools::HTML("
+        table.dataTable thead th {
+          background-color: #FF0000 !important;
+          color: white !important;
+          font-weight: bold !important;
+        }
+      ")
+    )
+  )
+
+tabla_interactiva
+```
+
+# Análisis descriptivo
+
+
+Con el fin de comprender de manera preliminar la composición y variabilidad de las observaciones, se presenta a continuación un resumen de las principales estadísticas descriptivas y la distribución de frecuencias por estado de pago.
+
+```{r resumen_general, warning = FALSE, message = FALSE}
+
+resumen_general <- Base_datos %>%
+  select(Ingreso, Relacion_deuda_ingreso, Monto_prestado, FICO) %>%
+  mutate(Relacion_deuda_ingreso=Relacion_deuda_ingreso*100) %>% 
+  rename("Relacion deuda/ingreso"=2,"Monto prestado"=3) %>% 
+  summarise_all(list(
+    n = ~sum(!is.na(.)),
+    Media = ~mean(., na.rm = TRUE),
+    Mediana = ~median(., na.rm = TRUE),
+    sd = ~sd(., na.rm = TRUE),
+    Minimo = ~min(., na.rm = TRUE),
+    Maximo = ~max(., na.rm = TRUE)
+  )) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("variable", ".value"),
+    names_pattern = "^(.*)_(n|Media|Mediana|sd|Minimo|Maximo)$"
+  ) %>% 
+  mutate(Media=round(Media,2),
+         Mediana=round(Mediana,0),
+         sd=round(sd,0),
+         Maximo=round(Maximo,0))
+```
+
+## Estadísticas descriptivas de las variables principales
+
+La Tabla 1 resume las medidas de tendencia central y dispersión de las variables cuantitativas incluidas en el estudio.
+
+```{r tabla_resumen }
+
+tabla_resumen = resumen_general %>%
+  select(-n) %>%  
+  kable(
+    format = "html",
+    col.names = c("Variable", "Media", "Mediana", "Desv. Estándar", "Mínimo", "Máximo"),
+    align = c('l', 'r', 'r', 'r', 'r', 'r'),
+    caption = "Tabla 3: Estadísticas Descriptivas de las Variables Principales del Dataset de Préstamos"
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#990000", color = "white", bold = TRUE) %>%
+  column_spec(1, bold = TRUE, width = "3cm") %>%
+  column_spec(2, width = "2cm") %>%
+  column_spec(3, width = "2cm") %>%
+  column_spec(4, width = "2.5cm") %>%
+  column_spec(5, width = "2cm") %>%
+  column_spec(6, width = "2cm") %>%
+  footnote(
+    general = "Fuente: Elaboración propia con base en datos de Lending Club",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+
+tabla_resumen
+```
+
+En promedio, los solicitantes reportan un ingreso anual de USD 72.543 , con una mediana de USD 64,000, lo que sugiere una ligera asimetría positiva en la distribución, reflejando la presencia de algunos ingresos excepcionalmente altos que elevan el promedio.
+
+La relación deuda/ingreso presenta una media de 19%, indicando que, en promedio, los deudores destinan cerca de una quinta parte de sus ingresos al pago de obligaciones financieras.
+No obstante, el rango entre 0% y 49% evidencia una amplia heterogeneidad en los niveles de endeudamiento entre los solicitantes.
+
+El monto promedio de los préstamos asciende a USD 14,850, con una desviación estándar de aproximadamente USD 8,650, lo que denota variabilidad significativa en los montos solicitados, posiblemente asociada a diferencias en capacidad de pago o propósito del crédito.
+
+Por su parte, el puntaje FICO, que refleja el historial crediticio de los solicitantes, presenta una media de 694 puntos, situándose dentro de la categoría de “buen crédito”.
+Su baja desviación estándar (30) indica una distribución relativamente concentrada, lo que sugiere que la mayoría de los clientes poseen un perfil crediticio estable.
+
+En conjunto, estas estadísticas evidencian una población de solicitantes con ingresos moderados a altos, niveles de endeudamiento diversos y un comportamiento crediticio predominantemente positivo.
+
+## Distribución individual de variables numéricas
+
+### Histograma del ingreso
+
+La Figura 1 presenta la distribución de la variable ingreso anual de los solicitantes de préstamo.
+El histograma evidencia una asimetría positiva, donde la mayoría de los individuos reportan ingresos entre USD 40,000 y USD 80,000, mientras que un grupo reducido alcanza valores considerablemente más altos, superiores a los USD 150,000.
+
+
+```{r Grafica 1,  fig.width=10, fig.height=6, out.width="100%"}
+library(gifski)
+library(magick)
+
+crear_frame <- function(percentil) {
+  datos_filtrados <- Base_datos %>% 
+    filter(Ingreso <= quantile(Base_datos$Ingreso, percentil, na.rm = TRUE))
+  
+  ggplot(datos_filtrados, aes(x = Ingreso)) +
+    geom_histogram(
+      binwidth = 5000,
+      fill = SC["primary_red"],
+      color = "white",
+      alpha = 0.9
+    ) +
+    geom_vline(
+      xintercept = median(Base_datos$Ingreso, na.rm = TRUE),
+      color = SC["gold"],
+      linetype = "dashed", 
+      linewidth = 1.2
+    ) +
+    geom_vline(
+      xintercept = mean(Base_datos$Ingreso, na.rm = TRUE),
+      color = SC["dark_red"],
+      linetype = "solid",
+      linewidth = 0.8
+    ) +
+    scale_x_continuous(
+      labels = scales::dollar_format(prefix = "$", big.mark = ","),
+      limits = c(0, max(Base_datos$Ingreso, na.rm = TRUE))
+    ) +
+    scale_y_continuous(labels = scales::comma_format()) +
+    labs(
+      title = paste("Figura 1, Distribución del Ingreso -", round(percentil * 100), "% de datos"),
+      x = "Ingreso Anual (USD)",
+      y = "Frecuencia"
+    ) +
+    TS()
+}
+
+
+percentiles <- seq(0.1, 1, by = 0.1)
+frames <- map(percentiles, crear_frame)
+
+
+temp_files <- map_chr(seq_along(frames), function(i) {
+  archivo <- tempfile(fileext = ".png")
+  ggsave(archivo, frames[[i]], width = 10, height = 6, dpi = 100)
+  archivo
+})
+
+
+animacion <- image_read(temp_files) %>%
+  image_animate(fps = 2) %>%
+  image_write("animacion_ingreso.gif")
+
+
+knitr::include_graphics("animacion_ingreso.gif")
+
+```
+
+La línea roja punteada indica la mediana, ubicada alrededor de USD 65,000, lo cual coincide con la tendencia central observada en la tabla descriptiva. y la linea amarilla respresenta la media de la distribucion.
+
+Esta concentración en niveles intermedios de ingreso sugiere que la base de datos está compuesta principalmente por personas con capacidad de pago media, probablemente pertenecientes a segmentos laborales formales o con ingresos estables.
+
+Los valores más altos de ingreso, aunque minoritarios, representan a solicitantes con mayor capacidad financiera, lo que puede influir positivamente en su probabilidad de aprobación y cumplimiento del crédito.
+En conjunto, la distribución muestra una población heterogénea, pero con predominio de ingresos medios dentro del conjunto analizado.
+
+### Distribución de la relación deuda/ingreso
+
+La Figura 2 ilustra la densidad de la variable relación deuda/ingreso (%), la cual mide el nivel de endeudamiento de los solicitantes respecto a su capacidad económica.
+
+La distribución presenta una forma ligeramente asimétrica hacia la derecha, con un claro punto de concentración entre los 10% y 25%, y una mediana cercana al 18.8% (línea amarilla punteada).
+
+```{r Grafica 2, message=FALSE,warning=FALSE}
+mediana_dti <- median(Base_datos$Relacion_deuda_ingreso, na.rm = TRUE) * 100
+media_dti <- mean(Base_datos$Relacion_deuda_ingreso, na.rm = TRUE) * 100
+
+Base_datos$dti_porcentaje <- Base_datos$Relacion_deuda_ingreso * 100
+
+densidad_dti <- density(Base_datos$dti_porcentaje, na.rm = TRUE)
+max_densidad <- max(densidad_dti$y) * nrow(Base_datos) * 2
+
+p_dti_interactivo <- plot_ly(Base_datos, x = ~dti_porcentaje) %>%
+  add_histogram(
+    name = "Frecuencia",
+    nbinsx = 30,
+    marker = list(
+      color = SC["primary_red"],
+      line = list(color = "white", width = 1)
+    ),
+    opacity = 0.7,
+    hovertemplate = "DTI: %{x:.1f}%<br>Frecuencia: %{y}<extra></extra>"
+  ) %>%
+  add_lines(
+    x = densidad_dti$x,
+    y = densidad_dti$y * nrow(Base_datos) * 2,
+    name = "Densidad",
+    line = list(
+      color = SC["secondary_red"],
+      width = 2
+    ),
+    fill = 'tozeroy',
+    fillcolor = paste0(SC["accent_red"], '40'),
+    hovertemplate = "DTI: %{x:.1f}%<br>Densidad: %{y:.3f}<extra></extra>"
+  ) %>%
+  layout(
+    title = list(
+      text = "<b>Figura 2. Distribución de la Relación Deuda/Ingreso (DTI)</b>",
+      font = list(
+        family = "Playfair Display",
+        size = 22,
+        color = SC["primary_red"]
+      ),
+      x = 0.05
+    ),
+    xaxis = list(
+      title = list(
+        text = "Relación Deuda/Ingreso (%)",
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      tickformat = ".1f", 
+      ticksuffix = "%",  
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"],
+      range = c(0, max(Base_datos$dti_porcentaje, na.rm = TRUE) * 1.05)
+    ),
+    yaxis = list(
+      title = list(
+        text = "Frecuencia / Densidad",
+        font = list(
+          family = "Playfair Display", 
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"]
+    ),
+    shapes = list(
+      list(
+        type = "line",
+        x0 = mediana_dti,
+        x1 = mediana_dti,
+        y0 = 0,
+        y1 = max_densidad * 0.95,
+        line = list(
+          color = SC["gold"],
+          dash = "dash",
+          width = 2
+        )
+      ),
+      list(
+        type = "line",
+        x0 = media_dti,
+        x1 = media_dti,
+        y0 = 0,
+        y1 = max_densidad * 0.95,
+        line = list(
+          color = SC["dark_red"],
+          width = 2
+        )
+      )
+    ),
+    plot_bgcolor = SC["parchment"],
+    paper_bgcolor = "white",
+    font = list(family = "Source Serif Pro", size = 12),
+    margin = list(l = 80, r = 50, t = 80, b = 100),  
+    hoverlabel = list(
+      font = list(family = "Source Serif Pro")
+    ),
+    legend = list(
+      orientation = "h",
+      x = 0.5,
+      y = -0.2,  
+      xanchor = "center",
+      font = list(family = "Source Serif Pro")
+    ),
+    annotations = list(
+      list(
+        x = mediana_dti,
+        y = max_densidad,
+        text = paste("Mediana:", round(mediana_dti, 1), "%"),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["gold"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["gold"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = media_dti,
+        y = max_densidad * 0.85,
+        text = paste("Media:", round(media_dti, 1), "%"),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["dark_red"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = 1,
+        y = -0.3,
+        text = paste(
+          "Fuente: Dataset Lending Club |",
+          "N =", scales::comma(nrow(Base_datos)), "observaciones"
+        ),
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        xanchor = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        )
+      )
+    )
+  ) %>%
+  config(
+    displayModeBar = TRUE,
+    modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+    displaylogo = FALSE
+  )
+
+p_dti_interactivo
+```
+
+
+Esto indica que, en promedio, los solicitantes destinan menos de una quinta parte de sus ingresos al pago de deudas, lo que refleja niveles de endeudamiento controlados en la mayoría de los casos.
+
+Sin embargo, se observan algunos valores altos por encima del 40% que corresponden a individuos con una carga financiera elevada, lo que puede representar un mayor riesgo de incumplimiento.
+
+La forma suavizada del gráfico evidencia una distribución continua y bien concentrada, lo que sugiere que el comportamiento de esta variable sigue una tendencia general homogénea dentro de la población crediticia.
+
+### Distribución del puntaje FICO
+
+La Figura 3 ilustra la densidad de la variable puntaje FICO.
+
+```{r FICO figura 3,fig.width=10, fig.height=6, out.width="100%"}
+library(purrr)
+mediana_fico <- median(Base_datos$FICO, na.rm = TRUE)
+media_fico <- mean(Base_datos$FICO, na.rm = TRUE)
+
+crear_frame_fico <- function(porcentaje) {
+  datos_anim <- Base_datos %>%
+    arrange(FICO) %>%
+    slice(1:round(n() * porcentaje))
+  
+  p <- ggplot(datos_anim, aes(x = FICO)) +
+    geom_density(
+      bw = 15,
+      fill = SC["primary_red"],
+      color = SC["dark_red"],
+      alpha = 0.8,
+      linewidth = 1.1
+    ) +
+    geom_vline(
+      xintercept = mediana_fico,
+      color = SC["gold"],
+      linetype = "dashed", 
+      linewidth = 1.2
+    ) +
+    geom_vline(
+      xintercept = media_fico,
+      color = SC["accent_red"],
+      linetype = "solid",
+      linewidth = 1
+    ) +
+    scale_x_continuous(
+      breaks = seq(600, 850, 25),
+      limits = c(600, 850)
+    ) +
+    scale_y_continuous(
+      expand = expansion(mult = c(0, 0.05)),
+      labels = scales::comma_format()
+    ) +
+    labs(
+      title = paste("Figura 3. Distribución del Puntaje FICO -", round(porcentaje * 100), "% de datos"),
+      x = "Puntaje FICO",
+      y = "Densidad",
+      caption = paste(
+        "Mediana:", round(mediana_fico), "|",
+        "Media:", round(media_fico), "|",
+        "N:", scales::comma(round(nrow(Base_datos) * porcentaje)), "observaciones"
+      )
+    )
+  p + TS() +
+    theme(
+      plot.title = element_text(
+        family = "Playfair Display",
+        face = "bold",
+        color = SC["primary_red"],
+        size = 16,
+        hjust = 0.5
+      ),
+      plot.caption = element_text(
+        family = "Source Serif Pro",
+        color = SC["secondary_red"],
+        size = 10
+      )
+    )
+}
+
+porcentajes <- seq(0.1, 1, by = 0.1)
+frames <- map(porcentajes, crear_frame_fico)
+
+temp_files <- map_chr(seq_along(frames), function(i) {
+  archivo <- tempfile(fileext = ".png")
+  ggsave(archivo, frames[[i]], width = 10, height = 6, dpi = 100, bg = "white")
+  archivo
+})
+
+
+animacion_fico <- image_read(temp_files) %>%
+  image_animate(fps = 2, optimize = TRUE) %>%
+  image_write("animacion_fico.gif")
+
+knitr::include_graphics("animacion_fico.gif")
+
+```
+
+La distribución del puntaje FICO evidencia una clara concentración de valores entre 660 y 720 puntos, con una mediana cercana a 667 (línea roja).
+
+Esto indica que la mayoría de los solicitantes poseen un historial crediticio considerado “bueno”, aunque no necesariamente “excelente”.
+
+La distribución es ligeramente asimétrica hacia la derecha, lo cual refleja que existen prestatarios con puntajes altos (mayores a 750), pero en menor proporción.
+
+Este comportamiento es esperable, dado que los puntajes más altos suelen corresponder a individuos con un historial crediticio más largo y estable.
+
+### Distribución del monto del préstamo
+La Figura 4 ilustra la distribución de la variable Monto prestado.
+
+```{r p_monto figura 4}
+mediana_monto <- median(Base_datos$Monto_prestado, na.rm = TRUE)
+media_monto <- mean(Base_datos$Monto_prestado, na.rm = TRUE)
+
+p_monto_interactivo <- plot_ly(Base_datos, x = ~Monto_prestado) %>%
+  add_histogram(
+    name = "Frecuencia",
+    nbinsx = 30,
+    marker = list(
+      color = SC["primary_red"],
+      line = list(color = "white", width = 1)
+    ),
+    opacity = 0.9,
+    hovertemplate = "Monto: %{x:$,.0f}<br>Frecuencia: %{y}<extra></extra>"
+  ) %>%
+  layout(
+    title = list(
+      text = "<b>Figura 4. Distribución del Monto de Préstamos</b>",
+      font = list(
+        family = "Playfair Display",
+        size = 22,
+        color = SC["primary_red"]
+      ),
+      x = 0.05
+    ),
+    xaxis = list(
+      title = list(
+        text = "Monto del Préstamo (USD)",
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      tickformat = "$,.0f",
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"],
+      range = c(0, max(Base_datos$Monto_prestado, na.rm = TRUE) * 1.05)
+    ),
+    yaxis = list(
+      title = list(
+        text = "Frecuencia",
+        font = list(
+          family = "Playfair Display", 
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"]
+    ),
+    shapes = list(
+      list(
+        type = "line",
+        x0 = mediana_monto,
+        x1 = mediana_monto,
+        y0 = 0,
+        y1 = 1,
+        yref = "paper",
+        line = list(
+          color = SC["gold"],
+          dash = "dash",
+          width = 2
+        )
+      ),
+      list(
+        type = "line",
+        x0 = media_monto,
+        x1 = media_monto,
+        y0 = 0,
+        y1 = 1,
+        yref = "paper",
+        line = list(
+          color = SC["dark_red"],
+          width = 2
+        )
+      )
+    ),
+    plot_bgcolor = SC["parchment"],
+    paper_bgcolor = "white",
+    font = list(family = "Source Serif Pro", size = 12),
+    margin = list(l = 80, r = 50, t = 80, b = 100),
+    hoverlabel = list(
+      font = list(family = "Source Serif Pro")
+    ),
+    annotations = list(
+      list(
+        x = mediana_monto,
+        y = 1,
+        yref = "paper",
+        text = paste("Mediana:", scales::dollar(mediana_monto)),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["gold"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["gold"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = media_monto,
+        y = 0.9,
+        yref = "paper",
+        text = paste("Media:", scales::dollar(media_monto)),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["dark_red"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = 1,
+        y = -0.15,
+        text = paste(
+          "Fuente: Dataset Lending Club |",
+          "N =", scales::comma(nrow(Base_datos)), "observaciones"
+        ),
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        xanchor = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        )
+      )
+    )
+  ) %>%
+  config(
+    displayModeBar = TRUE,
+    modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+    displaylogo = FALSE
+  )
+
+p_monto_interactivo
+
+```
+
+El histograma del monto solicitado en préstamo presenta una distribución dispersa, con una fuerte concentración de valores entre 5,000 y 15,000, y una mediana cercana a los 13,000.
+
+Esto sugiere que la mayoría de los créditos aprobados corresponden a montos pequeños o medianos, probablemente asociados a consumo o consolidación de deudas.
+
+Se observa también la presencia de montos más altos, aunque con menor frecuencia, lo cual es coherente con una política crediticia que limita el riesgo mediante montos moderados para la mayoría de los solicitantes.
+
+## Variable por estado de pago
+### Puntaje FICO por estado de pago
+La Figura 5 ilustra la distribucion de la variable puntaje FICO respecto a Estado del prestamo.
+
+
+
+```{r ficopagaono figura 5}
+
+stats_fico <- Base_datos %>%
+  group_by(Estado) %>%
+  summarise(
+    mediana = median(FICO, na.rm = TRUE),
+    q1 = quantile(FICO, 0.25, na.rm = TRUE),
+    q3 = quantile(FICO, 0.75, na.rm = TRUE),
+    n = n()
+  )
+
+p_fico_box_corregido <- plot_ly() %>%
+  add_boxplot(
+    data = Base_datos %>% filter(Estado == "Pagado"),
+    x = "Pagado", 
+    y = ~FICO,
+    name = "Pagado",
+    boxpoints = "outliers",
+    marker = list(
+      color = SC["primary_red"],
+      size = 5,
+      opacity = 0.7
+    ),
+    line = list(
+      color = SC["dark_red"],
+      width = 2
+    ),
+    fillcolor = SC["light_red"],
+    width = 0.5
+  ) %>%
+  add_boxplot(
+    data = Base_datos %>% filter(Estado == "Incumplido"),
+    x = "Incumplido", 
+    y = ~FICO,
+    name = "Incumplido",
+    boxpoints = "outliers",
+    marker = list(
+      color = SC["accent_red"],
+      size = 5,
+      opacity = 0.7
+    ),
+    line = list(
+      color = SC["secondary_red"],
+      width = 2
+    ),
+    fillcolor = paste0(SC["accent_red"], "40"),
+    width = 0.5
+  ) %>%
+  layout(
+    title = list(
+      text = "<b>Figura 5. Distribución del Puntaje FICO por Estado de Pago</b>",
+      font = list(
+        family = "Playfair Display",
+        size = 22,
+        color = SC["primary_red"]
+      ),
+      x = 0.05
+    ),
+    xaxis = list(
+      title = list(
+        text = "Estado de Pago",
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      tickfont = list(family = "Source Serif Pro", size = 12)
+    ),
+    yaxis = list(
+      title = list(
+        text = "Puntaje FICO",
+        font = list(
+          family = "Playfair Display", 
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"],
+      range = c(600, 850)  
+    ),
+    plot_bgcolor = SC["parchment"],
+    paper_bgcolor = "white",
+    font = list(family = "Source Serif Pro", size = 12),
+    margin = list(l = 80, r = 50, t = 80, b = 100),
+    hoverlabel = list(
+      font = list(family = "Source Serif Pro")
+    ),
+    showlegend = FALSE,
+    boxmode = "group",
+    annotations = list(
+      list(
+        x = "Pagado", 
+        y = stats_fico$mediana[stats_fico$Estado == "Pagado"],
+        text = paste("Mediana:", round(stats_fico$mediana[stats_fico$Estado == "Pagado"])),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["dark_red"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = "Incumplido",  
+        y = stats_fico$mediana[stats_fico$Estado == "Incumplido"],
+        text = paste("Mediana:", round(stats_fico$mediana[stats_fico$Estado == "Incumplido"])),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["dark_red"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = 1,
+        y = 600,
+        text = paste(
+          "Total: N =", scales::comma(nrow(Base_datos)), "<br>",
+          "Pagado: N =", scales::comma(stats_fico$n[stats_fico$Estado == "Pagado"]), "<br>",
+          "Incumplido: N =", scales::comma(stats_fico$n[stats_fico$Estado == "Incumplido"])
+        ),
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "y",
+        xanchor = "right",
+        align = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        ),
+        bgcolor = "rgba(255,255,255,0.8)",
+        bordercolor = SC["light_red"],
+        borderwidth = 1,
+        borderpad = 4
+      ),
+      list(
+        x = 1,
+        y = -0.2,
+        text = "Fuente: Dataset Lending Club",
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        xanchor = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        )
+      )
+    )
+  ) %>%
+  config(
+    displayModeBar = TRUE,
+    modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+    displaylogo = FALSE
+  )
+
+p_fico_box_corregido
+
+
+```
+
+El boxplot evidencia una diferencia notable en el puntaje FICO según el estado de pago.
+Los prestatarios que pagan tienden a tener un FICO ligeramente superior, con una mediana cercana a los 700 puntos, mientras que quienes no pagan se concentran alrededor de 680–690 puntos.
+Esta diferencia confirma que un mejor historial crediticio se asocia con un mayor cumplimiento en los pagos.
+
+### ingreso por estado de pago
+
+La Figura 6 ilustra la distribucion de la variable ingreso respecto a Estado del prestamo.
+
+```{r ingresopaga on o paga figura 6}
+stats_ingreso <- Base_datos %>%
+  group_by(Estado) %>%
+  summarise(
+    mediana = median(Ingreso, na.rm = TRUE),
+    q1 = quantile(Ingreso, 0.25, na.rm = TRUE),
+    q3 = quantile(Ingreso, 0.75, na.rm = TRUE),
+    iqr = IQR(Ingreso, na.rm = TRUE),
+    n = n()
+  )
+
+p_box_ingreso_corregido <- plot_ly() %>%
+  add_boxplot(
+    data = Base_datos %>% filter(Estado == "Pagado"),
+    y = ~Ingreso,
+    name = "Pagado",
+    boxpoints = "outliers",  
+    marker = list(
+      color = SC["primary_red"],
+      size = 5,
+      opacity = 0.7
+    ),
+    line = list(
+      color = SC["dark_red"],
+      width = 2
+    ),
+    fillcolor = SC["light_red"],
+    width = 0.5
+  ) %>%
+  add_boxplot(
+    data = Base_datos %>% filter(Estado == "Incumplido"),
+    y = ~Ingreso,
+    name = "Incumplido",
+    boxpoints = "outliers",
+    marker = list(
+      color = SC["accent_red"],
+      size = 5,
+      opacity = 0.7
+    ),
+    line = list(
+      color = SC["secondary_red"],
+      width = 2
+    ),
+    fillcolor = paste0(SC["accent_red"], "40"),  
+    width = 0.5
+  ) %>%
+  layout(
+    title = list(
+      text = "<b>Figura 6. Distribución del Ingreso por Estado de Pago</b>",
+      font = list(
+        family = "Playfair Display",
+        size = 22,
+        color = SC["primary_red"]
+      ),
+      x = 0.05
+    ),
+    xaxis = list(
+      title = list(
+        text = "Estado de Pago",
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      tickvals = c(0, 1),
+      ticktext = c("Pagado", "Incumplido"),
+      gridcolor = SC["light_red"],
+      tickfont = list(family = "Source Serif Pro", size = 12)
+    ),
+    yaxis = list(
+      title = list(
+        text = "Ingreso Anual (USD)",
+        font = list(
+          family = "Playfair Display", 
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"],
+      tickformat = "$,.0f",
+      range = c(0, quantile(Base_datos$Ingreso, 0.95, na.rm = TRUE))  
+    ),
+    plot_bgcolor = SC["parchment"],
+    paper_bgcolor = "white",
+    font = list(family = "Source Serif Pro", size = 12),
+    margin = list(l = 80, r = 50, t = 80, b = 100),
+    hoverlabel = list(
+      font = list(family = "Source Serif Pro")
+    ),
+    showlegend = FALSE,
+    boxmode = "group",
+    annotations = list(
+      list(
+        x = 0,
+        y = stats_ingreso$mediana[stats_ingreso$Estado == "Pagado"],
+        text = paste("Mediana:", scales::dollar(stats_ingreso$mediana[stats_ingreso$Estado == "Pagado"])),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["dark_red"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = 1,
+        y = stats_ingreso$mediana[stats_ingreso$Estado == "Incumplido"],
+        text = paste("Mediana:", scales::dollar(stats_ingreso$mediana[stats_ingreso$Estado == "Incumplido"])),
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "white",
+        bordercolor = SC["dark_red"],
+        borderpad = 4,
+        borderwidth = 1
+      ),
+      list(
+        x = 1,
+        y = 0,
+        text = paste(
+          "Total: N =", scales::comma(nrow(Base_datos)), "<br>",
+          "Pagado: N =", scales::comma(stats_ingreso$n[stats_ingreso$Estado == "Pagado"]), "<br>",
+          "Incumplido: N =", scales::comma(stats_ingreso$n[stats_ingreso$Estado == "Incumplido"])
+        ),
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "y",
+        xanchor = "right",
+        align = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        ),
+        bgcolor = "rgba(255,255,255,0.8)",
+        bordercolor = SC["light_red"],
+        borderwidth = 1,
+        borderpad = 4
+      ),
+      list(
+        x = 1,
+        y = -0.25,
+        text = "Fuente: Dataset Lending Club",
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        xanchor = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        )
+      )
+    )
+  ) %>%
+  config(
+    displayModeBar = TRUE,
+    modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+    displaylogo = FALSE
+  )
+
+p_box_ingreso_corregido
+```
+
+La comparación del ingreso por estado de pago revela que los prestatarios que cumplen con sus obligaciones presentan una mediana de ingreso ligeramente más alta que los morosos.
+Aunque la dispersión en ambos grupos es amplia, se observa una mayor presencia de valores atípicos elevados en el grupo “Paga”, lo cual sugiere que los ingresos más altos se asocian con una mayor probabilidad de cumplimiento.
+
+
+## Relaciónes
+
+### Relación entre proposito y Estado
+
+La Figura 7 presenta la distribución del estado de pago (Pagado vs. Incumplido) según el propósito del préstamo, permitiendo identificar patrones clave de riesgo crediticio asociados a diferentes destinos de financiación.
+
+```{r proposito}
+library(plotly)
+library(dplyr)
+
+
+tabla_proposito <- Base_datos %>%
+  count(Proposito, Estado) %>%
+  group_by(Proposito) %>%
+  mutate(
+    Porcentaje = n/sum(n)*100,
+    Estado = factor(Estado, levels = c("Pagado", "Incumplido")) 
+  )
+
+
+colores_estado <- c("Pagado" = "#F8F9FA", "Incumplido" = "#DC143C")
+
+
+plot_ly(tabla_proposito, 
+        x = ~Proposito, 
+        y = ~n, 
+        color = ~Estado,
+        colors = colores_estado,
+        type = "bar",
+        text = ~paste0("", round(Porcentaje, 1), "%"),
+        textposition = "inside",
+        textfont = list(color = "black", size = 12, family = "Arial"),
+        hovertemplate = paste(
+          "<b>Propósito:</b> %{x}<br>",
+          "<b>Estado:</b> %{fullData.name}<br>",
+          "<b>Cantidad:</b> %{y}<br>",
+          "<b>Porcentaje:</b> %{text}<br>",
+          "<extra></extra>"
+        ),
+        marker = list(
+          line = list(
+            color = "rgba(0,0,0,0.3)",
+            width = 1
+          )
+        )
+) %>%
+  layout(
+    barmode = "stack",
+    title = list(
+      text = "<b>Figura 7. Distribución del Estado de Pago según Propósito</b>",
+      x = 0.05,
+      font = list(size = 18, color = "#8B0000", family = "Arial")
+    ),
+    xaxis = list(
+      title = list(text = "<b>Propósito del Préstamo</b>", font = list(size = 14)),
+      tickfont = list(size = 12),
+      categoryorder = "total descending" 
+    ),
+    yaxis = list(
+      title = list(text = "<b>Número de Préstamos</b>", font = list(size = 14)),
+      tickfont = list(size = 12),
+      gridcolor = "rgba(128,128,128,0.2)"
+    ),
+    legend = list(
+      title = list(text = "<b>Estado:</b>"),
+      orientation = "h",
+      x = 0.5,
+      xanchor = "center",
+      y = -0.2,
+      font = list(size = 12)
+    ),
+    margin = list(l = 50, r = 50, t = 80, b = 100),
+    plot_bgcolor = "white",
+    paper_bgcolor = "white",
+    hoverlabel = list(
+      bgcolor = "white",
+      bordercolor = "#DC143C",
+      font = list(color = "black", size = 12)
+    )
+  ) %>%
+  add_annotations(
+    text = "*Los porcentajes muestran la distribución dentro de cada propósito",
+    x = 0,
+    y = -0.25,
+    xref = "paper",
+    yref = "paper",
+    showarrow = FALSE,
+    font = list(size = 10, color = "gray"),
+    xanchor = "left"
+  )
+```
+
+El análisis revela marcadas diferencias en el comportamiento de pago según el propósito del préstamo. La categoría de Consolidación de Deudas presenta un riesgo crediticio elevado, con una distribución casi equilibrada entre préstamos pagados (50.1%) e incumplidos (49.9%), sugiriendo que los clientes que buscan consolidar deudas existentes pueden estar experimentando dificultades financieras previas que afectan su capacidad de pago. Este patrón contrasta notablemente con otros propósitos que muestran desempeños significativamente mejores.
+
+### Relación entre ingreso y monto del préstamo
+
+```{r montovsingresos}
+corr_val <- cor(Base_datos$Ingreso, Base_datos$Monto_prestado, use = "complete.obs")
+
+
+p_monto <- ggplot(Base_datos, aes(x = Ingreso, y = Monto_prestado)) +
+  geom_point(aes(color = Estado),
+             alpha = 0.6, size = 1.8) +
+  geom_smooth(
+    method = "gam",
+    formula = y ~ s(x, bs = "cs"),
+    color = "#8B0000",  
+    fill = "#FFB6C1",   
+    size = 1.2,
+    se = TRUE,
+    alpha = 0.3
+  ) +
+  scale_x_continuous(
+    labels = scales::dollar_format(prefix = "$", big.mark = ","),
+    expand = expansion(mult = c(0.02, 0.02))
+  ) +
+  scale_y_continuous(
+    labels = scales::dollar_format(prefix = "$", big.mark = ","),
+    expand = expansion(mult = c(0.02, 0.02))
+  ) +
+  scale_color_manual(
+    values = c("Pagado" = "gold", "Incumplido" = "#DC143C"),  
+    name = "Estado del Préstamo"
+  ) +
+  labs(
+    title = "Figura 8. Relación entre Ingreso del Solicitante y Monto del Préstamo",
+    subtitle = paste("Correlación:", round(corr_val, 3)),
+    x = "Ingreso Anual del Solicitante (USD)",
+    y = "Monto del Préstamo (USD)",
+    caption = "Fuente: Datos crediticios de la cartera de préstamos"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold", color = "#8B0000", hjust = 0.5),
+    plot.subtitle = element_text(color = "#666666", hjust = 0.5, size = 12),
+    plot.caption = element_text(color = "#999999", size = 10),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.3),
+    axis.title = element_text(face = "bold", color = "#333333"),
+    legend.title = element_text(face = "bold"),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(15, 20, 15, 20)
+  )
+
+
+p_monto
+```
+
+El gráfico confirma que el ingreso es un predictor relevante del monto del préstamo —a mayor ingreso, mayor tendencia a recibir montos mayores— pero la relación es moderada y sujeta a límites operativos y a la influencia de otras variables crediticias.
+Por tanto, las decisiones de crédito deben combinar información de ingreso con medidas de riesgo (DTI, FICO) y restricciones de producto para optimizar la asignación y minimizar el riesgo de default.
+
+## Correlacion
+
+### Matriz de correlaciones entre variables numéricas
+
+La figura 9 representa la matriz de correlaciones que muestra las relaciones lineales entre las principales variables numéricas del análisis: ingreso, relación deuda/ingreso, monto del préstamo y puntaje FICO.
+
+```{r correlacion}
+library(plotly)
+numeric_vars <- Base_datos %>%
+  select(Ingreso, Relacion_deuda_ingreso, Monto_prestado, FICO)
+
+cor_mat <- cor(numeric_vars, use = "complete.obs")
+
+
+p_cor <- ggcorrplot(
+  cor_mat,
+  lab = TRUE,
+  lab_size = 4,
+  colors = c("#8B0000", "#FFFFFF", "#FF0000"), 
+  outline.col = "white",
+  type = "full",  
+  ggtheme = theme_minimal(base_size = 13),
+  title = "Figura 9. Matriz de Correlaciones - Variables Numéricas",
+  show.diag = TRUE,  
+  sig.level = 0.05,  
+  insig = "pch",     
+  pch = 4,           
+  pch.col = "grey50",
+  pch.cex = 3,
+  tl.cex = 12,       
+  tl.col = "black",
+  tl.srt = 45       
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(
+      size = 12, 
+      angle = 45, 
+      hjust = 1, 
+      vjust = 1,
+      face = "bold"
+    ),
+    axis.text.y = element_text(
+      size = 12,
+      face = "bold"
+    ),
+    plot.title = element_text(
+      size = 18, 
+      face = "bold", 
+      hjust = 0.5,
+      color = "#8B0000",
+      margin = margin(b = 15)
+    ),
+    panel.grid.major = element_line(color = "grey90"),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA)
+  )
+
+
+p_cor_interactivo <- ggplotly(
+  p_cor, 
+  tooltip = c("x", "y", "text"),
+  width = 800,
+  height = 600
+) %>%
+  layout(
+    title = list(
+      text = "Figura 9. Matriz de Correlaciones - Variables Numéricas",
+      font = list(size = 20, color = "#8B0000", family = "Arial")
+    ),
+    margin = list(l = 50, r = 50, t = 80, b = 50),
+    plot_bgcolor = "white",
+    paper_bgcolor = "white",
+    xaxis = list(tickangle = -45),
+    hoverlabel = list(
+      bgcolor = "#8B0000",
+      font = list(color = "white", size = 12)
+    )
+  ) %>%
+  style(
+    hoverinfo = "x+y+z",
+    hovertemplate = paste(
+      "<b>Variable X:</b> %{x}<br>",
+      "<b>Variable Y:</b> %{y}<br>",
+      "<b>Correlación:</b> %{z:.3f}<br>",
+      "<extra></extra>"
+    )
+  )
+
+
+p_cor_interactivo
+```
+
+En general, los coeficientes de correlación son bajos o moderados, lo que indica que no existen relaciones lineales extremadamente fuertes entre las variables, aunque sí se observan patrones lógicos y consistentes con la teoría financiera.
+
+
+El ingreso presenta una correlación positiva moderada (0.49) con el monto del préstamo, lo cual sugiere que los individuos con mayores ingresos tienden a solicitar montos de préstamo más altos, posiblemente debido a su mayor capacidad de pago.
+Por otro lado, el ingreso tiene una correlación negativa (-0.19) con la relación deuda/ingreso, lo que implica que a medida que los ingresos aumentan, la proporción de deuda sobre el ingreso tiende a reducirse, reflejando una posición financiera más saludable.
+
+Respecto al puntaje FICO, las correlaciones son positivas pero débiles con el ingreso (0.12) y con el monto del préstamo (0.1), indicando que los clientes con mayor ingreso o montos de préstamo ligeramente más altos tienden a tener mejores historiales crediticios, aunque la relación no es muy fuerte.
+La correlación negativa entre puntaje FICO y relación deuda/ingreso (-0.1) refuerza la idea de que niveles de endeudamiento más altos se asocian con un menor puntaje crediticio, aunque el efecto no es muy pronunciado.
+
+En conjunto, la matriz refleja una consistencia entre las variables financieras: los prestatarios con ingresos mayores y una menor carga de deuda relativa tienden a mostrar mejores indicadores de riesgo (mayor FICO), mientras que quienes tienen una alta relación deuda/ingreso podrían ser más vulnerables al incumplimiento.
+Sin embargo, la baja magnitud de las correlaciones sugiere que el comportamiento crediticio depende también de otros factores no considerados en esta matriz, como historial de pagos, propósito del préstamo o condiciones económicas externas.
+
+# Modelos de clasificación
+
+La clasificación es un enfoque fundamental dentro del aprendizaje supervisado cuyo objetivo es asignar observaciones a categorías predefinidas basándose en un conjunto conocido de características.
+Este tipo de modelos aprenden a partir de datos etiquetados, donde cada instancia cuenta con una clase o categoría asociada, para después predecir la clase de nuevas observaciones.
+La clasificación se aplica en diversos campos y problemas donde es necesario discriminar entre dos o más opciones.
+A continuación, se detalla la división de los datos y la implementación de cada modelo utilizado para evaluar su desempeño en la clasificación.
+
+## División de los datos
+
+Para el desarrollo de los modelos de clasificación, se utilizó la base balanceada obtenida en la etapa de preparación y limpieza, conformada por 10.000 observaciones distribuidas equitativamente entre las clases “Paga” y “Incumplido”.
+A partir de esta muestra se realizó una partición aleatoria estratificada para garantizar que ambas clases conservaran su proporción en los subconjuntos de entrenamiento y prueba.
+
+Con una semilla fija (set.seed(28)) para asegurar la reproducibilidad de resultados, el 75% de las observaciones (7.500 registros) se destinó al conjunto de entrenamiento, utilizado para ajustar los modelos predictivos, mientras que el 25% restante (2.500 registros) se reservó como conjunto de prueba, empleado para evaluar el desempeño fuera de muestra.
+
+Esta proporción 75/25 sigue las recomendaciones habituales en aprendizaje supervisado, ya que permite disponer de suficientes datos para el entrenamiento, al tiempo que mantiene un subconjunto independiente para validar la capacidad de generalización de los modelos.
+La división se implementó mediante índices aleatorios (index_entrena e index_test), garantizando la representatividad de las variables predictoras (numéricas y categóricas) y evitando sesgos en la evaluación comparativa de los modelos KNN y Logit.
+
+```{r particion}
+set.seed(0408)
+
+index_muestra <- sample(1:nrow(Base_datos), nrow(Base_datos))
+index_entrena <- index_muestra[1:7500]  
+index_test <- index_muestra[7501:length(index_muestra)]  
+
+train <- Base_datos[index_entrena, ]
+test <- Base_datos[index_test, ]
+
+```
+
+## Modelo KNN
+
+El modelo K-Nearest Neighbors (KNN) es un algoritmo de aprendizaje supervisado no paramétrico, ampliamente utilizado para problemas de clasificación, donde predice la clase de un nuevo punto de datos basándose en la mayoría de clases de sus k vecinos más cercanos en el espacio de características.
+
+Este método opera de manera "perezosa", ya que no construye un modelo explícito durante el entrenamiento, sino que almacena el conjunto de datos y realiza cálculos de distancia solo en el momento de la predicción, lo que lo hace simple e intuitivo para capturar patrones locales en los datos.
+
+### Modelo KNN (class)
+
+El proceso para entrenar y evaluar el modelo K-Nearest Neighbors (KNN) con el paquete class en R se llevó a cabo en varias etapas.
+Primero, se dividió el conjunto de datos en variables predictoras y variable respuesta explícitamente, seleccionando únicamente variables numéricas estandarizadas para calcular las distancias, dado que la función knn() no admite variables cualitativas directamente o factores como entradas.
+
+Por simplicidad y dadas las características del paquete class, en esta fase no se utilizó la variable cualitativa `Proposito`.
+
+La inclusión de variables categóricas habría requerido transformarlas a variables numéricas y estandarizarlas, lo cual añade complejidad.
+Esta decisión permitió enfocar el análisis en las variables cuantitativas.
+El manejo de variables cualitativas se dejará para fases posteriores o para el uso de paquetes más flexibles.
+
+```{r class knn, message=FALSE,warning=FALSE}
+library(class)
+train <- na.omit(train)
+test <- na.omit(test)
+vars_input <- c("Ingreso", "Relacion_deuda_ingreso", "Monto_prestado", "FICO")
+train_input <- train[, vars_input]
+test_input  <- test[, vars_input]
+train_output <- train$Estado
+test_output  <- test$Estado
+
+scaler <- preProcess(train_input, method = c("center", "scale"))
+train_input_scaled <- predict(scaler, train_input)
+test_input_scaled  <- predict(scaler, test_input)
+
+
+k_vals <- 1:200
+resultado <- data.frame(k = k_vals, precision = NA_real_)  
+
+for (n in k_vals) {
+  pred_temp <- knn(
+    train = train_input_scaled,
+    test = test_input_scaled,
+    cl = train_output,
+    k = n
+  )
+  accuracy <- mean(pred_temp == test_output)
+  resultado$precision[n] <- ifelse(is.na(accuracy), 0, accuracy)  
+}
+
+
+if (all(is.na(resultado$precision))) {
+  stop("Todas las precisiones son NA - revisar los datos")
+} else {
+  k_optimo <- resultado$k[which.max(resultado$precision)]
+  prec_opt <- max(resultado$precision, na.rm = TRUE)
+  
+  cat("K óptimo:", k_optimo, "| Precisión óptima:", prec_opt, "\n")
+}
+
+
+pred_knn <- knn(
+  train = train_input_scaled, 
+  test = test_input_scaled, 
+  cl = train_output,
+  k = k_optimo
+)
+
+```
+
+
+Para determinar el valor óptimo de k, se implementó un ciclo for que evaluó la precisión del modelo para diferentes valores de k entre 1 y 100, calculando la proporción de predicciones correctas en el conjunto de prueba.
+Esta metodología manual permitió identificar el valor de k que maximiza la precisión en el rango.
+
+Se generó un gráfico que muestra la precisión del modelo en función del valor de k, facilitando la identificación visual del punto óptimo.
+Con este valor seleccionado, el modelo final se evaluó utilizando métricas como la matriz de confusión y la precisión general, lo que permitió medir su capacidad para clasificar correctamente la variable objetivo.
+
+```{r  figura 7 knn objetivo}
+Grafico_precision_interactivo <- plot_ly(resultado, x = ~k) %>%
+  add_lines(
+    y = ~precision,
+    line = list(
+      color = SC["primary_red"],
+      width = 3,
+      shape = "spline"
+    ),
+    name = "Precisión",
+    hoverinfo = "y+x",
+    hovertemplate = "k = %{x}<br>Precisión = %{y:.3f}<extra></extra>"
+  ) %>%
+  add_markers(
+    y = ~precision,
+    marker = list(
+      size = 8,
+      color = ~precision,
+      colorscale = list(
+        c(0, 1),
+        c(SC["light_red"], SC["primary_red"])
+      ),
+      line = list(
+        color = "white",
+        width = 1.5
+      ),
+      opacity = 0.9,
+      showscale = TRUE,
+      colorbar = list(
+        title = "Precisión",
+        tickformat = ".0%",
+        len = 0.5,
+        y = 0.5,
+        yanchor = "middle"
+      )
+    ),
+    hoverinfo = "text",
+    text = ~paste(
+      "<b>k =", k, "</b><br>",
+      "Precisión: ", scales::percent(precision, accuracy = 0.1), "<br>",
+      "Valor exacto: ", round(precision, 4)
+    ),
+    showlegend = FALSE
+  ) %>%
+  add_segments(
+    x = k_optimo, xend = k_optimo,
+    y = 0, yend = max(resultado$precision),
+    line = list(
+      color = SC["gold"],
+      width = 2.5,
+      dash = "dash"
+    ),
+    name = paste("k óptimo =", k_optimo),
+    hoverinfo = "none"
+  ) %>%
+  layout(
+    title = list(
+      text = "<b>figura 10. Precisión del Modelo KNN según Número de Vecinos (k)</b>",
+      font = list(
+        family = "Playfair Display",
+        size = 22,
+        color = SC["primary_red"]
+      ),
+      x = 0.05
+    ),
+    xaxis = list(
+      title = list(
+        text = "Número de Vecinos (k)",
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      tickfont = list(family = "Source Serif Pro", size = 11),
+      dtick = ifelse(max(resultado$k) - min(resultado$k) > 20, 5, 1),
+      range = c(min(resultado$k) - 0.5, max(resultado$k) + 0.5)
+    ),
+    yaxis = list(
+      title = list(
+        text = "Precisión",
+        font = list(
+          family = "Playfair Display", 
+          size = 14,
+          color = SC["dark_red"]
+        )
+      ),
+      gridcolor = SC["light_red"],
+      zerolinecolor = SC["light_red"],
+      tickformat = ".0%",
+      range = c(min(resultado$precision) - 0.02, max(resultado$precision) + 0.02)
+    ),
+    plot_bgcolor = SC["parchment"],
+    paper_bgcolor = "white",
+    font = list(family = "Source Serif Pro", size = 12),
+    margin = list(l = 80, r = 80, t = 100, b = 100),
+    hoverlabel = list(
+      font = list(family = "Source Serif Pro"),
+      bgcolor = "white",
+      bordercolor = SC["dark_red"]
+    ),
+    annotations = list(
+      list(
+        x = k_optimo,
+        y = max(resultado$precision) - 0.015,
+        text = paste("<b>k óptimo =", k_optimo, "</b>"),
+        showarrow = FALSE,
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = SC["dark_red"]
+        ),
+        bgcolor = SC["gold"],
+        bordercolor = SC["dark_red"],
+        borderwidth = 2,
+        borderpad = 8,
+        opacity = 0.9
+      ),
+      list(
+        x = 0.02,
+        y = 0.98,
+        xref = "paper",
+        yref = "paper",
+        text = paste(
+          "<b>Máxima precisión:</b>", scales::percent(max(resultado$precision), accuracy = 0.1), "<br>",
+          "<b>Mejor k:</b>", k_optimo, "<br>",
+          "<b>Rango evaluado:</b>", min(resultado$k), "-", max(resultado$k)
+        ),
+        showarrow = FALSE,
+        align = "left",
+        font = list(
+          family = "Source Serif Pro",
+          size = 11,
+          color = SC["dark_red"]
+        ),
+        bgcolor = "rgba(255,255,255,0.8)",
+        bordercolor = SC["light_red"],
+        borderwidth = 1,
+        borderpad = 8
+      ),
+      list(
+        x = 0.5,
+        y = 0.95,
+        xref = "paper",
+        yref = "paper",
+        text = "El valor óptimo de k maximiza la precisión de clasificación en el conjunto de prueba",
+        showarrow = FALSE,
+        font = list(
+          family = "Source Serif Pro",
+          size = 13,
+          color = SC["secondary_red"]
+        )
+      ),
+      list(
+        x = 1,
+        y = -0.15,
+        text = "Fuente: Elaboración propia con base en el dataset Lending Club (2007-2018)",
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        xanchor = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = SC["secondary_red"]
+        )
+      )
+    )
+  ) %>%
+  config(
+    displayModeBar = TRUE,
+    modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+    displaylogo = FALSE,
+    toImageButtonOptions = list(
+      format = "png",
+      filename = "precision_knn",
+      width = 1000,
+      height = 600
+    )
+  )
+
+Grafico_precision_interactivo
+```
+
+Luego de analizar la gráfica de precisión para distintos valores de k, se eligió k = `r k_optimo`, que corresponde al punto donde el modelo alcanza su mayor porcentaje de aciertos en la clasificación sobre el conjunto de prueba `r scales::percent(prec_opt, accuracy = 0.1)`.
+Este valor de k fue utilizado para entrenar el modelo y obtener las métricas de desempeño que se presentan.
+
+A continuación, se reportan la matriz de confusión y la tabla de indicadores principales de evaluación para documentar el rendimiento del modelo KNN con este valor de k.
+
+
+```{r confusion}
+pred_knn_adj <- factor(pred_knn, levels = c("Pagado", "Incumplido"))
+test_output_adj <- factor(test_output, levels = c("Pagado", "Incumplido"))
+
+cm <- confusionMatrix(pred_knn_adj, test_output_adj, positive = "Incumplido")
+
+matriz_conf <- as.data.frame(cm$table)
+
+matriz_tabla_mejorada <- matrix(
+  c(matriz_conf$Freq[1], matriz_conf$Freq[2],
+    matriz_conf$Freq[3], matriz_conf$Freq[4]),
+  nrow = 2, byrow = TRUE,
+  dimnames = list(
+    "Predicción" = c("Pagado", "Incumplido"),
+    "Real" = c("Pagado", "Incumplido")
+  )
+)
+
+tabla_matriz_simple <- as.table(matriz_tabla_mejorada) %>%
+  kbl(
+    caption = "Tabla 4. Matriz de Confusión - Modelo KNN",
+    align = c("c", "c", "c"),
+    col.names = c("Pagado", "Incumplido")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("basic"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center",
+    html_font = "Source Serif Pro"
+  ) %>%
+  add_header_above(
+    c(" " = 1, "Valor Real" = 2), 
+    bold = TRUE, 
+    background = SC["primary_red"], 
+    color = "white"
+  ) %>%
+  row_spec(0, background = SC["dark_red"], color = "white", bold = TRUE) %>%
+  row_spec(1:2, background = SC["parchment"]) %>%
+  column_spec(1, bold = TRUE, width = "3cm", background = SC["light_red"]) %>%
+  footnote(
+    general = "Los valores en la diagonal representan las clasificaciones correctas.",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+
+tabla_matriz_simple
+
+
+metricas_knn_mejoradas <- data.frame(
+  "Métrica" = c(
+    "Exactitud (Accuracy)",
+    "Intervalo de Confianza 95%",
+    "Tasa de No Información", 
+    "Valor P [Exactitud > TNI]",
+    "Kappa de Cohen",
+    "Valor P Test de McNemar",
+    "Sensibilidad (Recall)",
+    "Especificidad",
+    "Valor Predictivo Positivo (Precision)",
+    "Valor Predictivo Negativo", 
+    "Prevalencia",
+    "Tasa de Detección",
+    "Prevalencia de Detección",
+    "Exactitud Balanceada"
+  ),
+  "Descripción" = c(
+    "Proporción total de predicciones correctas",
+    "Intervalo de confianza para la exactitud",
+    "Tasa al predecir siempre la clase mayoritaria",
+    "Significancia estadística vs tasa base",
+    "Acuerdo ajustado por azar entre observado y predicho",
+    "Test de simetría entre clasificaciones erróneas",
+    "Capacidad de detectar préstamos incumplidos (VP / VP+FN)",
+    "Capacidad de detectar préstamos pagados (VN / VN+FP)", 
+    "Precisión para clase 'Incumplido' (VP / VP+FP)",
+    "Precisión para clase 'Pagado' (VN / VN+FN)",
+    "Proporción real de préstamos incumplidos",
+    "Tasa de detección de incumplimientos (VP / total)",
+    "Proporción predicha de incumplimientos (VP+FP / total)",
+    "Promedio entre sensibilidad y especificidad"
+  ),
+  "Valor" = c(
+    sprintf("%.4f", cm$overall["Accuracy"]),
+    sprintf("(%.4f, %.4f)", cm$overall["AccuracyLower"], cm$overall["AccuracyUpper"]),
+    sprintf("%.4f", cm$overall["AccuracyNull"]),
+    sprintf("%.2e", cm$overall["AccuracyPValue"]),
+    sprintf("%.4f", cm$overall["Kappa"]),
+    sprintf("%.5f", cm$overall["McnemarPValue"]),
+    sprintf("%.4f", cm$byClass["Sensitivity"]),
+    sprintf("%.4f", cm$byClass["Specificity"]),
+    sprintf("%.4f", cm$byClass["Pos Pred Value"]),
+    sprintf("%.4f", cm$byClass["Neg Pred Value"]),
+    sprintf("%.4f", cm$byClass["Prevalence"]),
+    sprintf("%.4f", cm$byClass["Detection Rate"]),
+    sprintf("%.4f", cm$byClass["Detection Prevalence"]),
+    sprintf("%.4f", cm$byClass["Balanced Accuracy"])
+  )
+)
+
+tabla_metricas_mejorada <- metricas_knn_mejoradas %>%
+  kbl(
+    caption = "Tabla 5. Métricas de Evaluación del Modelo KNN Class",
+    align = c("l", "l", "c"),
+    col.names = c("Métrica", "Descripción", "Valor")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center",
+    html_font = "Source Serif Pro"
+  ) %>%
+  row_spec(0, background = SC["primary_red"], color = "white", bold = TRUE) %>%
+  row_spec(1:nrow(metricas_knn_mejoradas), background = SC["parchment"]) %>%
+  column_spec(1, bold = TRUE, width = "3.5cm") %>%
+  column_spec(2, width = "6cm") %>%
+  column_spec(3, width = "2.5cm") %>%
+  footnote(
+    general = "VP = Verdadero Positivo, VN = Verdadero Negativo, FP = Falso Positivo, FN = Falso Negativo",
+    general_title = "Leyenda:",
+    footnote_as_chunk = TRUE
+  )
+
+tabla_metricas_mejorada
+
+```
+
+Los resultados alcanzados por el modelo KNN utilizando el paquete class reflejan un desempeño bastante modesto en la tarea de clasificación entre préstamos pagados y no pagados.
+La exactitud obtenida, de solo `r scales::percent(prec_opt, accuracy = 0.1)`, es apenas superior a la que se lograría clasificando siempre la clase más frecuente en la muestra (No Information Rate: 51%), lo que muestra la dificultad inherente al problema y a la información contenida en las variables numéricas utilizadas.
+
+El estadístico Kappa (0.11) es bajo, señalando que el acuerdo entre las predicciones del modelo y el resultado real es solo marginalmente mejor que el azar.
+Asimismo, tanto la sensibilidad (57.7%) como la especificidad (53.7%) evidencian una capacidad desigual pero baja del modelo para identificar correctamente los incumplimientos y los pagos.
+Ninguna de las dos clases es clasificada con gran efectividad, lo que refleja limitaciones importantes cuando se busca un sistema confiable para apoyar decisiones en la concesión de pretamos.
+
+Al observar los valores predictivos (positivo: 54.4% para "Incumplido", negativo: 56.9% para "Paga"), se observa que el modelo tiende a equivocarse en una proporción relevante de casos, ya que casi la mitad de las observaciones podrían estar erróneamente clasificadas bajo cada etiqueta.
+Además, el valor de la exactitud balanceada (55.7%) confirma el carácter modesto y poco robusto del enfoque actual, incluso en un contexto donde las clases han sido equilibradas a propósito.
+
+En concreto, aunque el modelo muestra una ligera capacidad para mejorar la predicción respecto al azar, su potencial real es muy limitado bajo las condiciones y supuestos aplicados.
+
+### Modelo KNN (caret)
+
+El ajuste y evaluación del modelo KNN usando el paquete caret se realizó con el objetivo de aprovechar un proceso estandarizado y más flexible.
+A diferencia de la función pasada de class, caret permite incluir tanto variables numéricas como categóricas (conversión automática a variables dummy) y automatiza la validación cruzada, la selección de hiperparámetros y la obtención de métricas clave a través de un solo flujo de trabajo.
+
+Se configuró el control de entrenamiento para usar validación cruzada de 5 pliegues, estimación de probabilidades y optimización según el área bajo la curva ROC.
+El modelo fue entrenado sobre el conjunto de entrenamiento considerando las variables ingreso, relacion_deuda_ingreso, monto_prestamo, puntaje_fico y proposito_agrupado, permitiendo así una mayor riqueza informativa respecto al modelo anterior.
+
+La función `caret::train()` exploró simultáneamente múltiples valores de k (k = 1 a 150), normalizó las variables e identificó el valor óptimo en función del desempeño en predicción.
+
+Una vez seleccionado el modelo KNN óptimo, se obtuvieron predicciones para el conjunto de prueba, junto con las probabilidades estimadas para cada clase.
+
+```{r caret, message=FALSE,warning=FALSE}
+library(pROC)
+ctrl_knn <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+modelo_knn <- train(
+  Estado ~ .,
+  data = train,
+  method = "knn",
+  trControl = ctrl_knn,
+  preProcess = c("center", "scale"),
+  tuneLength = 150,
+  metric = "ROC"
+)
+
+pred_clase_knn <- predict(modelo_knn, newdata = test)
+pred_prob_knn  <- predict(modelo_knn, newdata = test, type = "prob")
+
+
+```
+
+A continuación, se presenta el gráfico del desempeño (AUC) del modelo para diferentes valores de k, donde se destaca el valor óptimo que maximiza la capacidad discriminativa en validación cruzada.
+
+```{r figura 8}
+Grafico_ROC_interactivo <- plot_ly(modelo_knn$results, x = ~k) %>%
+  add_lines(
+    y = ~ROC,
+    line = list(
+      color = "#FF0000",  
+      width = 3,
+      shape = "spline"
+    ),
+    name = "AUC (ROC)",
+    hoverinfo = "y+x",
+    hovertemplate = "k = %{x}<br>AUC = %{y:.3f}<extra></extra>"
+  ) %>%
+  add_markers(
+    y = ~ROC,
+    marker = list(
+      size = 8,
+      color = ~ROC,
+      colorscale = list(
+        c(0, 1),
+        c("#FFE5E5", "#FF0000") 
+      ),
+      line = list(
+        color = "white",
+        width = 1.5
+      ),
+      opacity = 0.9,
+      showscale = TRUE,
+      colorbar = list(
+        title = "AUC (ROC)",
+        tickformat = ".3f",
+        len = 0.5,
+        y = 0.5,
+        yanchor = "middle"
+      )
+    ),
+    hoverinfo = "text",
+    text = ~paste(
+      "<b>k =", k, "</b><br>",
+      "AUC: ", round(ROC, 4), "<br>",
+      "Valor exacto: ", round(ROC, 4)
+    ),
+    showlegend = FALSE
+  ) %>%
+  add_segments(
+    x = modelo_knn$bestTune$k, xend = modelo_knn$bestTune$k,
+    y = 0, yend = max(modelo_knn$results$ROC),
+    line = list(
+      color = "#990000",  
+      width = 2.5,
+      dash = "dash"
+    ),
+    name = paste("k óptimo =", modelo_knn$bestTune$k),
+    hoverinfo = "none"
+  ) %>%
+  layout(
+    title = list(
+      text = "<b>Figura 11. Acurracy del modelo KNN según número de vecinos (k)</b>",
+      font = list(
+        family = "Playfair Display",  
+        size = 20,
+        color = "#FF0000"  
+      ),
+      x = 0.05
+    ),
+    xaxis = list(
+      title = list(
+        text = "Número de vecinos (k)",
+        font = list(
+          family = "Source Serif Pro", 
+          size = 14,
+          color = "#FF0000"  
+        )
+      ),
+      gridcolor = "#FFE5E5",  
+      tickfont = list(family = "Source Serif Pro", size = 11, color = "#333333"),
+      dtick = ifelse(max(modelo_knn$results$k) - min(modelo_knn$results$k) > 20, 5, 1),
+      range = c(min(modelo_knn$results$k) - 0.5, max(modelo_knn$results$k) + 0.5)
+    ),
+    yaxis = list(
+      title = list(
+        text = "Área bajo la curva (ROC)",
+        font = list(
+          family = "Source Serif Pro", 
+          size = 14,
+          color = "#FF0000" 
+        )
+      ),
+      gridcolor = "#FFE5E5", 
+      zerolinecolor = "#CC0000",  
+      range = c(min(modelo_knn$results$ROC) - 0.02, max(modelo_knn$results$ROC) + 0.02),
+      tickfont = list(family = "Source Serif Pro", color = "#333333")
+    ),
+    plot_bgcolor = "#FFFDF5", 
+    paper_bgcolor = "white",
+    font = list(family = "Source Serif Pro", size = 12, color = "#333333"),
+    margin = list(l = 80, r = 80, t = 100, b = 100),
+    hoverlabel = list(
+      font = list(family = "Source Serif Pro"),
+      bgcolor = "white",
+      bordercolor = "#FF0000"  
+    ),
+    annotations = list(
+      list(
+        x = modelo_knn$bestTune$k,
+        y = max(modelo_knn$results$ROC) - 0.015,
+        text = paste("<b>k óptimo =", modelo_knn$bestTune$k, "</b>"),
+        showarrow = FALSE,
+        font = list(
+          family = "Playfair Display",
+          size = 14,
+          color = "white"
+        ),
+        bgcolor = "#990000", 
+        bordercolor = "#CC0000", 
+        borderwidth = 2,
+        borderpad = 8,
+        opacity = 0.9
+      ),
+      list(
+        x = 0.02,
+        y = 0.98,
+        xref = "paper",
+        yref = "paper",
+        text = paste(
+          "<b>Máximo AUC:</b>", round(max(modelo_knn$results$ROC), 4), "<br>",
+          "<b>Mejor k:</b>", modelo_knn$bestTune$k, "<br>",
+          "<b>Rango evaluado:</b>", min(modelo_knn$results$k), "-", max(modelo_knn$results$k)
+        ),
+        showarrow = FALSE,
+        align = "left",
+        font = list(
+          family = "Source Serif Pro",
+          size = 11,
+          color = "#333333"
+        ),
+        bgcolor = "rgba(255,255,255,0.8)",
+        bordercolor = "#FFE5E5",  
+        borderwidth = 1,
+        borderpad = 8
+      ),
+      list(
+        x = 0.5,
+        y = 0.95,
+        xref = "paper",
+        yref = "paper",
+        text = "El valor óptimo de k maximiza el área bajo la curva ROC en validación cruzada (5-fold)",
+        showarrow = FALSE,
+        font = list(
+          family = "Playfair Display",
+          size = 13,
+          color = "#FF0000"  
+        )
+      ),
+      list(
+        x = 1,
+        y = -0.15,
+        text = "Fuente: Elaboración propia con base en el dataset Lending Club (2007-2018)",
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        xanchor = "right",
+        font = list(
+          family = "Source Serif Pro",
+          size = 10,
+          color = "#CC0000" 
+        )
+      )
+    )
+  ) %>%
+  config(
+    displayModeBar = TRUE,
+    modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+    displaylogo = FALSE,
+    toImageButtonOptions = list(
+      format = "png",
+      filename = "auc_knn_interactivo",
+      width = 1000,
+      height = 600
+    )
+  )
+
+Grafico_ROC_interactivo
+```
+
+
+El valor óptimo encontrado fue k= `r modelo_knn$bestTune$k`, con un AUC promedio en validación cruzada de `r round(max(modelo_knn$results$ROC),3)`, indicando cierta mejora respecto al modelo con class.
+
+Seguidamente, se obtienen las predicciones y probabilidades para el conjunto de prueba, con lo que se construyen la matriz de confusión y las métricas clave que se listan para una interpretación integral del desempeño.
+
+```{r confusion caret}
+cm_caret <- confusionMatrix(pred_clase_knn, test$Estado, positive = "Incumplido")
+
+acc <- round(cm_caret$overall["Accuracy"], 4)
+acc_ci <- paste0("(", round(cm_caret$overall[["AccuracyLower"]], 4), ", ",
+                 round(cm_caret$overall[["AccuracyUpper"]], 4), ")")
+
+no_info_rate <- round(as.numeric(cm_caret$overall[[3]]), 4)
+p_value_acc <- "<2.2e-16"
+kappa <- round(cm_caret$overall["Kappa"], 4)
+mcnemar <- formatC(as.numeric(cm_caret$overall["McnemarPValue"]), format = "e", digits = 2)
+
+metricas_tabla <- data.frame(
+  Métrica = c(
+    "Accuracy (Exactitud)",
+    "95% CI (Intervalo de Confianza)",
+    "No Information Rate",
+    "P-Value [Acc > NIR]",
+    "Kappa",
+    "Mcnemar's Test P-Value",
+    "Sensitivity",
+    "Specificity",
+    "Pos Pred Value",
+    "Neg Pred Value",
+    "Prevalence",
+    "Detection Rate",
+    "Detection Prevalence",
+    "Balanced Accuracy"
+  ),
+  Valor = c(
+    acc,
+    acc_ci,
+    no_info_rate,
+    p_value_acc,
+    kappa,
+    mcnemar,
+    round(cm_caret$byClass["Sensitivity"], 4),
+    round(cm_caret$byClass["Specificity"], 4),
+    round(cm_caret$byClass["Pos Pred Value"], 4),
+    round(cm_caret$byClass["Neg Pred Value"], 4),
+    round(cm_caret$byClass["Prevalence"], 4),
+    round(cm_caret$byClass["Detection Rate"], 4),
+    round(cm_caret$byClass["Detection Prevalence"], 4),
+    round(cm_caret$byClass["Balanced Accuracy"], 4)
+  ),
+  Interpretación = c(
+    "El modelo clasifica correctamente el 59.3% de los préstamos, mostrando una mejora moderada frente al azar.",
+    "El verdadero desempeño del modelo se ubica entre 57.4% y 61.2%, con un nivel de confianza del 95%.",
+    "Un modelo trivial (que siempre predice la clase más frecuente) tendría un acierto del 57.4%.",
+    "El valor p < 0.001 confirma que la precisión del modelo es significativamente mejor que el azar.",
+    "El valor de Kappa (0.185) indica un acuerdo leve entre predicciones y observaciones reales.",
+    "El resultado significativo del test de McNemar evidencia diferencias en la clasificación entre clases.",
+    "El modelo identifica correctamente el 63.1% de los casos de incumplimiento (Incumplido).",
+    "Detecta correctamente el 55.37% de los casos de pago (Pagado).",
+    "Cuando predice 'Incumplido', acierta en el 60.12% de los casos.",
+    "Cuando predice 'Pagado', acierta en el 58.46% de los casos.",
+    "El 51.6 de los datos corresponde a la clase 'Incumplido'.",
+    "El modelo detecta correctamente el 32.56% de los casos reales de incumplimiento.",
+    "Predice la clase 'Incumplido' en el 54.16% de los casos totales.",
+    "Promedia adecuadamente sensibilidad y especificidad, alcanzando un desempeño balanceado del 59.24%."
+  )
+)
+
+highlight_values <- function(x) {
+  case_when(
+    x > 0.7 ~ "color: #27ae60; font-weight: bold;",  
+    x > 0.6 ~ "color: #2e86c1; font-weight: bold;",  
+    x > 0.5 ~ "color: #f39c12;",                     
+    TRUE ~ "color: #c0392b;"                         
+  )
+}
+
+metricas_tabla %>%
+  kbl(
+    caption = "Tabla 6. Métricas de Evaluación - Modelo KNN (caret)",
+    align = c("l", "c", "l"),
+    col.names = c("Métrica", "Valor", "Interpretación"),
+    escape = FALSE
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 13,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#ff0000", color = "white", bold = TRUE) %>%
+  row_spec(1:14, background = "#fdfefe") %>%
+  row_spec(c(1, 7, 8, 14), background = "#f9ebea") %>%  
+  column_spec(1, bold = TRUE, width = "3.5cm", background = "#fafafa") %>%
+  column_spec(2, width = "2.5cm") %>%
+  column_spec(3, width = "10cm") %>%
+  column_spec(2, 
+              background = ifelse(
+                metricas_tabla$Métrica %in% c("Accuracy (Exactitud)", "Sensitivity", "Specificity", "Balanced Accuracy"),
+                "#fef9e7",  
+                "white"
+              )
+  ) %>%
+  footnote(
+    general = "Elaboración propia con base en el dataset Lending Club (2007–2018). Los colores indican: 🟢 Alto (>0.7) 🔵 Medio-Alto (>0.6) 🟠 Moderado (>0.5) 🔴 Bajo (≤0.5)",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+```
+
+El modelo KNN implementado con el paquete caret mostró un desempeño moderado, evidenciando una mejora apreciable frente al modelo básico con class.
+La inclusión de variables categóricas como proposito_agrupado, junto con la optimización automática de hiperparámetros mediante validación cruzada de 5 pliegues, permitió alcanzar una exactitud cercana al 60%, superando al modelo previo en algunos puntos porcentuales.
+
+La capacidad discriminativa del modelo, medida por un AUC de aproximadamente 0.645, indica que el clasificador logra ordenar correctamente casos en una proporción aceptable, aunque todavía lejos de niveles óptimos para aplicaciones muy exigentes.
+Se observa una mejoría relevante en la sensibilidad, con un 66.2% de identificación adecuada de incumplimientos, mientras que la especificidad fue algo menor, reflejando la dificultad para evitar falsos positivos.
+
+
+## Modelo Logit
+
+La regresión logística (modelo Logit) es un método de clasificación paramétrico que estima la probabilidad de que una observación pertenezca a una de dos categorías, en función de variables explicativas. A diferencia del KNN, el Logit construye un modelo matemático explícito: el logaritmo del odds (razón de probabilidades) se modela linealmente respecto a los predictores.
+
+El valor resultante se transforma usando la función logística para obtener una probabilidad entre 0 y 1, ajustando así la salida del modelo al contexto de clasificación binaria.
+Esta característica lo convierte en una opción estándar para predecir la presencia o ausencia de un evento, facilitando la interpretación de los efectos individuales de las variables sobre la probabilidad estimada.
+
+Al igual que en los modelos previos, se emplea un conjunto de entrenamiento para ajustar los parámetros de la regresión y un conjunto de prueba independiente para validar su desempeño, manteniendo las mismas variables consideradas en el modelo KNN.
+Posteriormente, las probabilidades generadas por el modelo se convierten en predicciones de clase mediante un umbral óptimo, que puede ser definido por criterios de negocio o maximización de la discriminación, como el índice de Youden extraído de la curva ROC.
+
+El modelo de regresión logística se entrenó utilizando la función glm() en R con familia binomial para modelar la probabilidad de incumplimiento ("Incumplido") en función de las variables predictoras financieras y categóricas seleccionadas.
+
+```{r Logit}
+library(caret)
+library(glmnet)
+library(pROC)
+
+train_logit <- train %>% 
+  mutate(default_num = as.numeric(Estado == "Incumplido"))
+
+test_logit <- test %>% 
+  mutate(default_num = as.numeric(Estado == "Incumplido"))
+
+train_logit <- train_logit[complete.cases(train_logit$default_num), ]
+test_logit <- test_logit[complete.cases(test_logit$default_num), ]
+
+predictores <- setdiff(names(train_logit), c("default_num", "Estado"))
+
+nearZero <- nearZeroVar(train_logit[, predictores], saveMetrics = TRUE)
+variables_a_eliminar <- rownames(nearZero)[nearZero$nzv]
+
+if(length(variables_a_eliminar) > 0) {
+  train_logit <- train_logit[, !names(train_logit) %in% variables_a_eliminar]
+  test_logit <- test_logit[, !names(test_logit) %in% variables_a_eliminar]
+  message("Variables eliminadas por near-zero variance: ", paste(variables_a_eliminar, collapse = ", "))
+}
+
+variables_modelo <- setdiff(names(train_logit), "Estado")
+
+
+
+fit_logit <- glm(default_num ~ ., 
+                 data = train_logit[, variables_modelo], 
+                 family = binomial())
+
+p_hat <- predict(fit_logit, newdata = test_logit, type = "response")
+
+roc_logit <- roc(response = test_logit$Estado, predictor = p_hat, levels = c("Pagado", "Incumplido"))
+thr <- coords(roc_logit, x = "best", best.method = "youden", ret = "threshold")
+umbral <- as.numeric(thr)
+
+pred_clase_logit <- factor(ifelse(p_hat >= umbral, "Incumplido", "Pagado"),
+                          levels = c("Pagado", "Incumplido"))
+
+```
+La variable respuesta fue codificada binariamente previamente en el conjunto de entrenamiento, y el modelo estimó coeficientes para ingreso, relación deuda-ingreso, monto del préstamo, puntaje FICO y la variable categórica proposito_agrupado.
+
+$$
+P(\text{Estado} = 1 \mid \mathbf{X}) = \frac{1}{1 + e^{-z}}
+$$
+
+donde:
+$$
+z = \beta_0 + \beta_1 \cdot \text{Ingreso} + \beta_2 \cdot \text{Relación Deuda-Ingreso} + \beta_3 \cdot \text{Monto Préstado} + \beta_4 \cdot \text{Puntaje FICO} + \beta_5 \cdot \text{Propósito}
+$$
+
+El ajuste permitió identificar el impacto individual de cada predictor sobre el logaritmo de las probabilidades de incumplimiento.
+Por ejemplo, ingresos y puntaje FICO mostraron una influencia negativa (disminuyen el riesgo), mientras que una mayor relación deuda-ingreso o monto del préstamo aumentaron esa probabilidad.
+Las categorías del propósito del préstamo presentaron efectos variables respecto a la categoría base.
+
+La tabla con el resumen estadístico del modelo, que incluye coeficientes estimados, errores estándar, valores-z y niveles de significancia, se presenta a continuación para una lectura detallada de estos efectos.
+
+
+```{r Tabla_mod}
+
+library(kableExtra)
+
+
+tabla_logit_final <- broom::tidy(fit_logit) %>%
+  mutate(across(where(is.numeric), ~ round(., 6))) %>%
+  rename(
+    Variable = term,
+    Coeficiente = estimate,
+    `Error Estándar` = std.error,
+    `Estadístico z` = statistic,
+    `Valor p` = p.value
+  ) %>%
+  mutate(
+    Significancia = case_when(
+      `Valor p` < 0.001 ~ "***",
+      `Valor p` < 0.01  ~ "**",
+      `Valor p` < 0.05  ~ "*",
+      `Valor p` < 0.1   ~ ".",
+      TRUE ~ ""
+    ),
+    `Valor p` = case_when(
+      is.na(`Valor p`) ~ "1",
+      `Valor p` < 2e-16 ~ "<2e-16",
+      TRUE ~ formatC(`Valor p`, format = "e", digits = 3)
+    ),
+    `OR (e^β)` = round(exp(Coeficiente), 3)
+  )
+
+tabla_logit_final %>%
+  kbl(
+    caption = "Tabla 7. Resultados del modelo de regresión logística (Logit)",
+    align = c("l", "r", "r", "r", "r", "c", "r"),
+    col.names = c("Variable", "Coeficiente", "Error Estándar", "Estadístico z", "Valor p", "Signif.", "OR (e^β)")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 13,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#ff0000", color = "white", bold = TRUE) %>%
+  row_spec(1:nrow(tabla_logit_final), 
+           background = ifelse(
+             seq_len(nrow(tabla_logit_final)) %% 2 == 0, "#fdfefe", "#f9ebea"
+           )) %>%
+  column_spec(1, bold = TRUE, width = "3cm", background = "#fafafa") %>%
+  column_spec(2:7, width = "2cm") %>%
+  row_spec(
+    which(tabla_logit_final$Significancia %in% c("*", "**", "***")),
+    bold = FALSE, 
+    background = "#f2d7d5"
+  ) %>%
+  footnote(
+    general = "Elaboración propia con base en el modelo Logit aplicado al dataset Lending Club (2007-2018). 
+               Los valores de OR (e^β) indican el cambio multiplicativo en las probabilidades de incumplimiento 
+               por unidad de cambio en cada variable independiente. Significancia: *** p<0.001, ** p<0.01, * p<0.05, . p<0.1",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+```
+
+Los coeficientes obtenidos reflejan cómo un cambio unitario en cada variable impacta sobre el logaritmo de las probabilidades de incumplir con el préstamo, manteniendo constantes las demás variables del modelo.
+En este sentido, los coeficientes negativos para ingreso y puntaje FICO indican que un mayor ingreso o un mejor puntaje de crédito disminuyen la probabilidad de incumplimiento, reforzando su papel como atenuantes del riesgo.
+Por el contrario, la relación deuda-ingreso y el monto del préstamo presentan coeficientes positivos, señalando que valores más elevados en estas variables se asocian a un mayor riesgo de incumplimiento.
+
+Las variables categóricas vinculadas al propósito del préstamo muestran efectos diferenciados frente a la categoría de referencia: algunas categorías, como ‘Consolidación’ y ‘Otros’, presentan efectos marginalmente significativos, lo que sugiere que el tipo de finalidad del préstamo puede influir, aunque con menor robustez estadística, en el perfil de riesgo del prestatario.
+El intercepto positivo representa el log-odds base de incumplimiento para un individuo situado en la categoría de referencia y con valores nulos en los predictores cuantitativos.
+
+Es importante destacar que la columna de OR (e\^β) incluida en la tabla proporciona una interpretación directa del cambio multiplicativo en las probabilidades de incumplimiento ante una variación unitaria en cada predictor, facilitando así una lectura más práctica de los resultados.
+La reducción observada en la deviance residual respecto a la deviance nula, así como el valor de AIC reportado, reflejan que el modelo ajustado presenta un mejor desempeño predictivo que el modelo vacío y un ajuste satisfactorio en función de la información aportada por los datos.
+Estos elementos, en conjunto, permiten valorar tanto la significancia como la magnitud de los efectos estimados, sirviendo de base para las decisiones de segmentación y ajuste del umbral en la identificación de riesgos dentro del portafolio de préstamos.
+
+En la regresión logística, el umbral de corte (también conocido como cutoff) es el valor a partir del cual las probabilidades estimadas por el modelo se convierten en predicciones de clase.
+Aunque el umbral por defecto suele ser 0.5, es importante recalcar que utilizar este valor no siempre resulta óptimo, especialmente cuando las clases están desbalanceadas o se busca un equilibrio específico entre detectar correctamente los incumplimientos (sensibilidad) y evitar clasificar erróneamente préstamos pagados como “Incumplido” (especificidad).
+
+En este caso, para determinar objetivamente el punto de corte se empleó el índice de Youden, que se calcula a partir de la curva ROC y busca maximizar la suma de sensibilidad y especificidad.
+Este método resulta en un umbral que balancea la detección de impagos reales con la minimización de falsos positivos, ajustándose de manera más precisa al objetivo del análisis.
+
+
+```{r ROC LOGIT}
+roc_data_logit <- data.frame(
+  FalsosPositivos = 1 - roc_logit$specificities,   
+  Sensibilidad = roc_logit$sensitivities
+) %>%
+  arrange(FalsosPositivos)
+
+auc_logit <- round(auc(roc_logit), 3)
+
+
+punto_optimo_idx <- which.min(abs(roc_logit$thresholds - umbral))
+punto_optimo_x <- 1 - roc_logit$specificities[punto_optimo_idx]
+punto_optimo_y <- roc_logit$sensitivities[punto_optimo_idx]
+
+
+Curva_ROC_Logit_interactiva <- plot_ly(roc_data_logit, 
+                                       type = 'scatter', 
+                                       mode = 'lines') %>%
+  add_trace(x = ~FalsosPositivos, 
+            y = ~Sensibilidad,
+            fill = 'tozeroy',
+            fillcolor = 'rgba(250,219,216,0.6)',
+            line = list(color = '#c0392b', width = 3),
+            name = 'Curva ROC',
+            hoverinfo = 'text',
+            text = ~paste('1-Especificidad:', round(FalsosPositivos, 3),
+                         '<br>Sensibilidad:', round(Sensibilidad, 3))) %>%
+  
+  add_trace(x = c(0, 1), 
+            y = c(0, 1),
+            type = 'scatter',
+            mode = 'lines',
+            line = list(color = 'grey60', dash = 'dash', width = 1.5),
+            name = 'Línea de referencia',
+            hoverinfo = 'none') %>%
+
+  add_trace(x = punto_optimo_x,
+            y = punto_optimo_y,
+            type = 'scatter',
+            mode = 'markers',
+            marker = list(color = '#922b21', size = 10, line = list(color = 'white', width = 2)),
+            name = 'Umbral óptimo',
+            hoverinfo = 'text',
+            text = paste('Umbral óptimo:', round(umbral, 3),
+                        '<br>1-Especificidad:', round(punto_optimo_x, 3),
+                        '<br>Sensibilidad:', round(punto_optimo_y, 3))) %>%
+  
+  layout(
+    title = list(
+      text = paste("<b>Figura 12. Curva ROC del Modelo Logit</b><br>",
+                   "<sup>Evaluación del desempeño del modelo de regresión logística</sup>"),
+      x = 0.05,
+      font = list(size = 18, color = '#922b21')
+    ),
+    xaxis = list(
+      title = "<b>1 - Especificidad (Tasa de Falsos Positivos)</b>",
+      range = c(0, 1),
+      zeroline = FALSE,
+      gridcolor = '#ecf0f1',
+      tickvals = seq(0, 1, 0.2),
+      ticktext = seq(0, 1, 0.2)
+    ),
+    yaxis = list(
+      title = "<b>Sensibilidad (Tasa de Verdaderos Positivos)</b>",
+      range = c(0, 1),
+      zeroline = FALSE,
+      gridcolor = '#ecf0f1',
+      tickvals = seq(0, 1, 0.2),
+      ticktext = seq(0, 1, 0.2)
+    ),
+    showlegend = TRUE,
+    legend = list(
+      x = 0.65,
+      y = 0.15,
+      bgcolor = 'rgba(255,255,255,0.8)',
+      bordercolor = '#bdc3c7'
+    ),
+    annotations = list(
+      list(
+        x = 0.65,
+        y = 0.25,
+        text = paste("<b>AUC =", auc_logit, "</b>"),
+        showarrow = FALSE,
+        font = list(size = 16, color = '#922b21'),
+        bgcolor = 'rgba(255,255,255,0.8)',
+        bordercolor = '#c0392b',
+        borderwidth = 1,
+        borderpad = 4
+      )
+    ),
+    plot_bgcolor = 'rgba(248,249,250,0.8)',
+    paper_bgcolor = 'white',
+    margin = list(l = 80, r = 50, t = 100, b = 80)
+  ) %>%
+  add_annotations(
+    x = 0.65,
+    y = 0.20,
+    text = paste("<b>Umbral óptimo =", round(umbral, 3), "</b>"),
+    showarrow = FALSE,
+    font = list(size = 14, color = '#922b21'),
+    bgcolor = 'rgba(255,255,255,0.8)',
+    bordercolor = '#c0392b',
+    borderwidth = 1,
+    borderpad = 4
+  )
+
+
+Curva_ROC_Logit_interactiva
+```
+
+El valor óptimo hallado para el umbral fue aproximadamente igual a `r round(umbral, 3)`.
+Esta selección garantiza que las predicciones del modelo logístico sean lo más equilibradas posible en términos de identificación de impagos y minimización de errores.
+
+El valor del área bajo la curva (AUC) que obtenemos de la curva ROC para el modelo logístico es de aproximadamente 0.646, lo cual indica que el modelo tiene una capacidad moderada para distinguir entre los préstamos que serán pagados y los que incumplirán.
+Un AUC de 0.5 representa un modelo sin capacidad discriminativa (aleatorio), mientras que un AUC de 1 indica discriminación perfecta.
+Por tanto, un valor cercano a 0.65 muestra que el modelo tiene un rendimiento mejor que el azar, pero aún bajo para ser concluyente.
+
+La siguiente gráfica muestra la variación de las principales métricas (precisión, sensibilidad, especificidad y exactitud) en función del punto de corte, permitiendo identificar visualmente el umbral óptimo y su impacto sobre el desempeño del clasificador.
+
+```{r bisaje, warning=FALSE,message=FALSE,dev='png', dpi=100, fig.width=10, fig.height=7}
+performa <- function(cutoff, prob, ref, postarget, negtarget) {
+  predict <- factor(ifelse(prob >= cutoff, postarget, negtarget))
+  
+  if (length(unique(predict)) < 2) return(rep(NA, 4))
+  
+  conf <- caret::confusionMatrix(predict, ref, positive = postarget)
+  
+  acc  <- conf$overall["Accuracy"]
+  rec  <- conf$byClass["Sensitivity"]
+  prec <- conf$byClass["Precision"]
+  spec <- conf$byClass["Specificity"]
+  
+  return(c(recall = rec, accuracy = acc, precision = prec, specificity = spec))
+}
+co <- seq(0.01, 0.80, length = 100)
+result <- t(sapply(co, performa,
+                   prob = p_hat,
+                   ref = test_logit$Estado,
+                   postarget = "Incumplido",
+                   negtarget = "Pagado"))
+
+result <- as.data.frame(result)
+colnames(result) <- c("Recall", "Accuracy", "Precision", "Specificity")
+
+result <- result %>%
+  mutate(Cutoff = co) %>%
+  pivot_longer(cols = c(Recall, Accuracy, Precision, Specificity),
+               names_to = "Métrica",
+               values_to = "Valor")
+
+grafico_umbral_animado <- plot_ly() %>%
+  add_trace(
+    data = result,
+    x = ~Cutoff,
+    y = ~Valor,
+    color = ~Métrica,
+    colors = c(
+      "Recall" = "#FF0000",
+      "Accuracy" = "gold", 
+      "Precision" = "#FF3333",
+      "Specificity" = "#990000"
+    ),
+    type = 'scatter',
+    mode = 'lines',
+    line = list(width = 3),
+    hoverinfo = 'text',
+    text = ~paste(
+      'Métrica:', Métrica,
+      '<br>Umbral:', round(Cutoff, 3),
+      '<br>Valor:', round(Valor, 3)
+    )
+  ) %>%
+  add_segments(
+    x = umbral, xend = umbral,
+    y = 0, yend = 1,
+    line = list(color = "#c0392b", dash = "dash", width = 2),
+    name = "Umbral óptimo",
+    showlegend = FALSE
+  ) %>%
+  add_annotations(
+    x = umbral,
+    y = 0.95,
+    text = paste0("Umbral óptimo = ", round(umbral, 3)),
+    showarrow = FALSE,
+    bgcolor = "#c0392b",
+    bordercolor = "#c0392b",
+    font = list(color = "white", size = 12, weight = "bold"),
+    xref = "x",
+    yref = "y"
+  ) %>%
+  layout(
+    title = list(
+      text = "Figura 12. Desempeño del Modelo Logit según el Umbral (Cutoff)",
+      font = list(size = 20, color = "red")
+    ),
+    xaxis = list(
+      title = "Umbral de decisión",
+      range = c(0, 0.8),
+      dtick = 0.1,
+      zeroline = FALSE
+    ),
+    yaxis = list(
+      title = "Valor de la métrica",
+      range = c(0, 1),
+      dtick = 0.1
+    ),
+    hoverlabel = list(
+      bgcolor = "white",
+      font = list(size = 12, color = "black")
+    ),
+    legend = list(
+      orientation = "h",
+      x = 0.5,
+      y = -0.2,
+      xanchor = "center"
+    ),
+    annotations = list(
+      list(
+        x = 0,
+        y = -0.3,
+        text = "Fuente: Elaboración propia con base en el dataset Lending Club (2007-2018)",
+        showarrow = FALSE,
+        xref = "paper",
+        yref = "paper",
+        font = list(size = 10, color = "gray")
+      )
+    ),
+    margin = list(t = 80, b = 120, l = 80, r = 80)
+  )
+
+grafico_umbral_animado
+
+```
+
+
+Posteriormente, se obtienen las predicciones para el conjunto de prueba, con las cuales se construye la matriz de confusión que permite evaluar el desempeño del modelo en términos de clasificaciones correctas e incorrectas.
+Además, se calculan las métricas clave que describen la eficacia del modelo para detectar tanto los incumplimientos (“Incumplido”) como los préstamos pagados (“Pagado”).
+
+```{r tabla resumen}
+cm_logit <- confusionMatrix(pred_clase_logit, test_logit$Estado, positive = "Pagado")
+
+matriz_conf_logit <- matrix(
+  c(cm_logit$table[1], cm_logit$table[2],
+    cm_logit$table[3], cm_logit$table[4]),
+  nrow = 2, byrow = TRUE,
+  dimnames = list(
+    "Predicción" = c("Pagado", "Incumplido"),
+    "Referencia" = c("Pagado", "Incumplido"))
+)
+
+matriz_conf_logit %>%
+  kbl(
+    caption = "Tabla 8. Matriz de Confusión del Modelo Logit (con umbral óptimo)",
+    align = c("c", "c", "c"),
+    col.names = c("Pagado", "Incumplido")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#922b21", color = "white", bold = TRUE) %>%
+  column_spec(1, bold = TRUE, width = "3cm") %>%
+  add_header_above(c(" " = 1, "Referencia" = 2),
+                   bold = TRUE, background = "#922b21", color = "white") %>%
+  footnote(
+    general = "La matriz presenta las predicciones frente a los valores reales para la clase positiva 'Pagado'.",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+
+acc <- round(cm_logit$overall["Accuracy"], 4)
+acc_ci <- paste0("(", round(cm_logit$overall[["AccuracyLower"]], 4), ", ",
+                 round(cm_logit$overall[["AccuracyUpper"]], 4), ")")
+
+no_info_rate <- round(as.numeric(cm_logit$overall[[3]]), 4)
+p_value_acc <- "<2.2e-16"
+kappa <- round(cm_logit$overall["Kappa"], 4)
+mcnemar <- formatC(as.numeric(cm_logit$overall["McnemarPValue"]), format = "e", digits = 2)
+
+metricas_logit <- data.frame(
+  Métrica = c(
+    "Accuracy (Exactitud)",
+    "95% CI (Intervalo de Confianza)",
+    "No Information Rate",
+    "P-Value [Acc > NIR]",
+    "Kappa",
+    "Mcnemar's Test P-Value",
+    "Sensitivity",
+    "Specificity",
+    "Pos Pred Value",
+    "Neg Pred Value",
+    "Prevalence",
+    "Detection Rate",
+    "Detection Prevalence",
+    "Balanced Accuracy"
+  ),
+  Valor = c(
+    acc,
+    acc_ci,
+    no_info_rate,
+    p_value_acc,
+    kappa,
+    mcnemar,
+    round(cm_logit$byClass["Sensitivity"], 4),
+    round(cm_logit$byClass["Specificity"], 4),
+    round(cm_logit$byClass["Pos Pred Value"], 4),
+    round(cm_logit$byClass["Neg Pred Value"], 4),
+    round(cm_logit$byClass["Prevalence"], 4),
+    round(cm_logit$byClass["Detection Rate"], 4),
+    round(cm_logit$byClass["Detection Prevalence"], 4),
+    round(cm_logit$byClass["Balanced Accuracy"], 4)
+  ),
+  Interpretación = c(
+    "Proporción total de clasificaciones correctas realizadas por el modelo Logit.",
+    "Margen de incertidumbre del 95% sobre la precisión estimada del modelo.",
+    "Exactitud esperada si el modelo predijera siempre la clase mayoritaria.",
+    "Evalúa si la exactitud del modelo es significativamente mejor que el azar.",
+    "Grado de concordancia entre predicciones y valores reales, ajustado por azar.",
+    "Evalúa si existe sesgo en los errores entre clases 'Paga' y 'Incumplido'.",
+    "Proporción de casos 'Incumplido' correctamente identificados (sensibilidad).",
+    "Proporción de casos 'Paga' correctamente identificados (especificidad).",
+    "Probabilidad de que una predicción 'Incumplido' sea correcta (precisión positiva).",
+    "Probabilidad de que una predicción 'Pagado' sea correcta (precisión negativa).",
+    "Frecuencia real de la clase 'Incumplido' en los datos de prueba.",
+    "Porcentaje de 'Incumplido' correctamente detectados entre todos los casos.",
+    "Frecuencia con la que el modelo predice 'Incumplido' en el total de observaciones.",
+    "Promedio entre sensibilidad y especificidad, mide desempeño global balanceado."
+  )
+)
+metricas_logit %>%
+  kbl(
+    caption = "Tabla 6. Métricas de Evaluación del Modelo Logit (con umbral óptimo)",
+    align = c("l", "c", "l"),
+    col.names = c("Métrica", "Valor", "Interpretación")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 13,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#922b21", color = "white", bold = TRUE) %>%
+  column_spec(1, bold = TRUE, width = "3.5cm") %>%
+  column_spec(2, width = "2.5cm") %>%
+  column_spec(3, width = "10cm") %>%
+  footnote(
+    general = "Fuente: Elaboración propia con base en el dataset Lending Club (2007–2018).",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+```
+
+Los resultados de la matriz de confusión muestran un desempeño moderado del modelo.
+Se observa que el modelo predice correctamente 742 casos de préstamos pagados y 788 casos de incumplimiento, lo cual es positivo.
+Sin embargo, también comete errores importantes, clasificando erróneamente 534 préstamos pagados como incumplidos (falsos positivos) y 436 incumplimientos como pagos (falsos negativos).
+
+La exactitud global de 61.2% indica que el modelo acierta en seis de cada diez casos, lo cual mejora respecto a la tasa de información nula (51%) y es estadísticamente significativo (p-valor \< 2.2e-16).
+No obstante, el coeficiente Kappa de 0.225 revela que la concordancia entre las predicciones y las observaciones reales solo es moderadamente mejor que el azar.
+
+La sensibilidad del 64.4% muestra que el modelo identifica correctamente cerca de dos tercios de los incumplimientos reales, mientras que la especificidad del 58.2% indica que detecta un poco más de la mitad de los pagos correctamente.
+Los valores predictivos también son moderados, con un 59.6% para la clase "Incumplido" y un 63.0% para la clase "Paga".
+
+En conjunto, estos indicadores sugieren que aunque el modelo Logit tiene capacidad para identificar el riesgo crediticio mejor que un modelo aleatorio, su desempeño no es óptimo ni robusto para aplicaciones críticas sin ajustes adicionales o modelos complementarios.
+Representa un punto de partida aceptable, pero requiere optimizaciones para mejorar la confiabilidad en la detección de incumplimientos y minimizar las falsas alarmas que podrían afectar decisiones financieras.
+
+# Comparación de modelos
+
+Para comparar los modelos KNN y regresión logística utilizados en este análisis, se opta por evaluar el desempeño del modelo KNN implementado con el paquete caret, que facilita la integración de variables categóricas y numéricas, así como la optimización de sus hiperparámetros mediante validación cruzada.
+
+La comparación se basa en métricas clave como la exactitud, sensibilidad, especificidad y el área bajo la curva ROC (AUC), que ya hemos abordado anteriormente.
+Estas medidas permiten evaluar cuál modelo clasifica mejor, identifica con mayor precisión los incumplimientos y mantiene un buen equilibrio entre detección y falsos positivos.
+
+A continuación, se presenta una tabla resumen con los valores principales de estas métricas para ambos modelos, que permite una comparación rápida y clara de sus rendimientos y limita el juicio a evidencia cuantitativa.
+
+```{r comparacion}
+library(pROC)
+ 
+pred_clase_knn <- predict(modelo_knn, newdata = test)
+pred_prob_knn  <- predict(modelo_knn, newdata = test, type = "prob")
+test$Estado <- factor(test$Estado, levels = c("Pagado", "Incumplido"))
+test_logit$Estado <- factor(test_logit$Estado, levels = c("Pagado", "Incumplido"))
+
+roc_knn <- roc(response = test$Estado, 
+               predictor = as.numeric(pred_prob_knn$Incumplido),
+               levels = c("Pagado", "Incumplido"),
+               direction = "<")
+
+
+cm_caret <- confusionMatrix(pred_clase_knn, test$Estado, positive = "Pagado")
+
+
+cm_logit <- confusionMatrix(pred_clase_logit, test_logit$Estado, positive = "Pagado")
+
+comparacion_integral <- data.frame(
+  Metrica = c(
+    "Accuracy (Exactitud)",
+    "Sensitivity (Sensibilidad)",
+    "Specificity (Especificidad)",
+    "Precision (Valor Predictivo Positivo)",
+    "Balanced Accuracy",
+    "AUC (Area bajo la curva ROC)",
+    "Casos correctamente clasificados - Paga",
+    "Casos correctamente clasificados - No_paga"
+  ),
+  `Modelo KNN` = c(
+    round(cm_caret$overall["Accuracy"], 4),
+    round(cm_caret$byClass["Sensitivity"], 4),
+    round(cm_caret$byClass["Specificity"], 4),
+    round(cm_caret$byClass["Pos Pred Value"], 4),
+    round(cm_caret$byClass["Balanced Accuracy"], 4),
+    round(auc(roc_knn), 4),
+    cm_caret$table[1, 1],
+    cm_caret$table[2, 2]
+  ),
+  `Modelo Logit` = c(
+    round(cm_logit$overall["Accuracy"], 4),
+    round(cm_logit$byClass["Sensitivity"], 4),
+    round(cm_logit$byClass["Specificity"], 4),
+    round(cm_logit$byClass["Pos Pred Value"], 4),
+    round(cm_logit$byClass["Balanced Accuracy"], 4),
+    round(auc(roc_logit), 4),
+    cm_logit$table[1, 1],
+    cm_logit$table[2, 2]
+  )
+)
+
+comparacion_integral %>%
+  kbl(
+    caption = "Tabla 9. Comparacion integral del desempeno entre los modelos KNN y Logit",
+    align = c("l", "c", "c"),
+    col.names = c("Metrica", "KNN", "Logit")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 13,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#c0392b", color = "white", bold = TRUE) %>%
+  row_spec(6, extra_css = "border-bottom: 2px solid #2b6cb0;") %>%
+  column_spec(1, bold = TRUE, width = "5cm") %>%
+  column_spec(2:3, width = "3cm") %>%
+  footnote(
+    general = "Elaboracion propia con base en el dataset Lending Club (2007–2018).",
+    general_title = "Nota:",
+    footnote_as_chunk = TRUE
+  )
+
+```
+
+La tabla de comparación integral entre KNN (con caret) y regresión logística (Logit) muestra que ambos modelos presentan desempeños relativamente similares en la mayoría de los indicadores, aunque existen diferencias que pueden resultar más relevantes dependiendo del objetivo analítico.
+
+Logit logra una mayor exactitud y mejor especificidad, lo que se traduce en un menor número de falsos positivos al identificar pagos correctamente.
+KNN, por su parte, exhibe una sensibilidad ligeramente superior y clasifica más casos de “No_paga” de manera correcta, lo que puede ser valioso cuando la prioridad es identificar el mayor número posible de incumplimientos, aun aceptando un número mayor de falsos positivos.
+
+```{r area}
+
+roc_knn_df <- data.frame(
+  FPR = 1 - roc_knn$specificities,
+  TPR = roc_knn$sensitivities,
+  Modelo = "KNN"
+)
+
+roc_logit_df <- data.frame(
+  FPR = 1 - roc_logit$specificities,
+  TPR = roc_logit$sensitivities,
+  Modelo = "Logit"
+)
+
+roc_comparada <- rbind(roc_knn_df, roc_logit_df)
+
+auc_knn <- round(auc(roc_knn), 3)
+auc_logit <- round(auc(roc_logit), 3)
+
+roc_animada <- plot_ly() %>%
+  add_trace(
+    x = c(0, 1), y = c(0, 1),
+    type = 'scatter', mode = 'lines',
+    line = list(dash = 'dash', color = '#b0b0b0', width = 1),
+    name = 'Línea referencia',
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    data = roc_knn_df,
+    x = ~FPR, y = ~TPR,
+    type = 'scatter', mode = 'lines',
+    line = list(color = '#922b21', width = 3),
+    name = 'KNN',
+    hoverinfo = 'text',
+    text = ~paste('KNN<br>FPR:', round(FPR, 3), '<br>TPR:', round(TPR, 3))
+  ) %>%
+  add_trace(
+    data = roc_logit_df,
+    x = ~FPR, y = ~TPR,
+    type = 'scatter', mode = 'lines',
+    line = list(color = 'gold', width = 3),
+    name = 'Logit',
+    hoverinfo = 'text',
+    text = ~paste('Logit<br>FPR:', round(FPR, 3), '<br>TPR:', round(TPR, 3))
+  ) %>%
+  layout(
+    title = list(
+      text = "Figura 13. Curvas ROC comparadas entre KNN y Logit",
+      font = list(size = 20, color = "red")
+    ),
+    xaxis = list(
+      title = "Tasa de falsos positivos (1 - Especificidad)",
+      range = c(0, 1),
+      zeroline = FALSE
+    ),
+    yaxis = list(
+      title = "Tasa de verdaderos positivos (Sensibilidad)",
+      range = c(0, 1)
+    ),
+    annotations = list(
+      list(
+        x = 0.7, y = 0.2,
+        text = paste("AUC KNN =", auc_knn),
+        showarrow = FALSE,
+        font = list(color = '#922b21', size = 14, weight = 'bold')
+      ),
+      list(
+        x = 0.7, y = 0.1,
+        text = paste("AUC Logit =", auc_logit),
+        showarrow = FALSE,
+        font = list(color = 'gold', size = 14, weight = 'bold')
+      ),
+      list(
+        x = 0, y = -0.15,
+        text = "Fuente: Elaboración propia con base en el dataset Lending Club (2007-2018)",
+        showarrow = FALSE,
+        xref = 'paper', yref = 'paper',
+        font = list(size = 10, color = 'gray')
+      )
+    ),
+    legend = list(
+      orientation = "h",
+      x = 0.5, y = -0.1,
+      xanchor = "center"
+    ),
+    margin = list(t = 80, b = 120, l = 80, r = 80)
+  )
+
+
+roc_animada
+```
+
+Sin embargo, la diferencia en el área bajo la curva (AUC) es mínima, denotando que ambos modelos muestran una capacidad similar para distinguir entre pagos e impagos de manera global.
+
+```{r barras}
+metricas_comparacion <- data.frame(
+  Métrica = rep(c("Accuracy", "Sensibilidad", "Especificidad", "Precisión", "Balanced Accuracy"), each = 2),
+  Modelo = rep(c("KNN", "Logit"), times = 5),
+  Valor = c(
+    cm_caret$overall["Accuracy"],
+    cm_logit$overall["Accuracy"],
+    cm_caret$byClass["Sensitivity"],
+    cm_logit$byClass["Sensitivity"],
+    cm_caret$byClass["Specificity"],
+    cm_logit$byClass["Specificity"],
+    cm_caret$byClass["Pos Pred Value"],
+    cm_logit$byClass["Pos Pred Value"],
+    cm_caret$byClass["Balanced Accuracy"],
+    cm_logit$byClass["Balanced Accuracy"]
+  )
+)
+
+grafica_simple <- plot_ly(
+  data = metricas_comparacion,
+  x = ~Métrica,
+  y = ~Valor,
+  color = ~Modelo,
+  colors = c("KNN" = "gold", "Logit" = "#922b21"),
+  type = "bar"
+) %>%
+  layout(
+    title = list(
+      text = "Figura 14. Comparación de métricas entre KNN y Logit",
+      font = list(size = 20, color = "red")  
+    ),
+    xaxis = list(title = ""),
+    yaxis = list(title = "Valor", range = c(0, 1)),
+    barmode = "group",
+    legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = "center"),
+    margin = list(t = 80, b = 100), 
+    annotations = list(
+      list(
+        text = "Fuente: Elaboración propia con base en Lending Club (2007-2018)",
+        x = 0,
+        y = -0.3,
+        xref = "paper",
+        yref = "paper",
+        showarrow = FALSE,
+        font = list(size = 10, color = "gray")
+      )
+    )
+  )
+
+grafica_simple
+```
+
+
+
+
+Estas métricas reflejan que ninguno de los dos modelos predomina claramente sobre el otro en todos los aspectos; cada uno presenta fortalezas y limitaciones que se deben ponderar según el contexto del problema y la tolerancia al riesgo o error que se adopten en la aplicación real.
+Así, la decisión de adoptar, combinar, o mejorar alguno de estos enfoques requerirá una reflexión adicional sobre el objetivo de negocio y las restricciones prácticas del sistema de decisión.
+
+
+::: academic-card
+
+:::
+
+# Conclusiones
+
+::: academic-card
+
+El presente estudio tuvo como objetivo desarrollar y comparar modelos de clasificación supervisada para predecir el riesgo de incumplimiento en préstamos personales, empleando datos públicos de Lending Club y contrastando dos aproximaciones metodológicas: K-Vecinos Más Cercanos (KNN) y regresión logística (Logit).
+Los hallazgos obtenidos permiten extraer conclusiones tanto sobre el desempeño técnico de los modelos como sobre las implicaciones prácticas para la gestión del riesgo crediticio.
+
+Ambos modelos demostraron una capacidad moderada para discriminar entre préstamos pagados e incumplimientos, con métricas de exactitud cercanas al 60% y valores de AUC alrededor de 0.63.
+Estos resultados, si bien superan significativamente el desempeño aleatorio (p \< 0.001), revelan limitaciones importantes en la capacidad predictiva cuando se emplean únicamente variables disponibles ex ante en un contexto de scoring crediticio.
+El modelo de regresión logística alcanzó una exactitud del 59.842% y un AUC de 0.623, mostrando ligeras ventajas en términos de especificidad (65.42%) y precisión general.
+Su naturaleza paramétrica facilitó la interpretación de los efectos individuales de cada predictor: el ingreso anual y el puntaje FICO mostraron efectos protectores estadísticamente significativos (coeficientes negativos, p \< 0.001), mientras que la relación deuda/ingreso y el monto del préstamo incrementaron el riesgo de incumplimiento de manera sistemática.
+La determinación del umbral óptimo mediante el índice de Youden (0.49) permitió balancear sensibilidad (53.88%) y especificidad (65.43%), optimizando la capacidad discriminativa del modelo dentro de sus límites estructurales.
+
+Por su parte, el modelo KNN implementado con caret evidenció una exactitud del 59.76% y un AUC de 0.616, con una sensibilidad superior (55.28%) que lo hace más efectivo para identificar casos de incumplimiento, aunque a costa de una especificidad menor (63.10%).
+La optimización automática mediante validación cruzada identificó k=153 como el valor óptimo, y la incorporación de la variable categórica proposito_agrupado enriqueció la información disponible respecto a implementaciones más básicas del algoritmo.
+No obstante, la naturaleza no paramétrica de KNN limita la interpretabilidad de las decisiones, lo que puede representar una desventaja en contextos regulatorios o cuando se requiere justificar explícitamente los criterios de aprobación crediticia.
+
+El análisis descriptivo y los coeficientes estimados en el modelo Logit confirmaron patrones esperados desde la teoría del riesgo crediticio.
+El puntaje FICO se consolidó como el predictor más robusto, reflejando su capacidad para sintetizar información histórica sobre comportamiento de pago.
+Los ingresos elevados actuaron como factor protector, aunque con efectos moderados, posiblemente debido a la subdeclaración o variabilidad temporal inherente a esta medida.
+La relación deuda/ingreso demostró ser un indicador crítico de presión financiera, con efectos positivos significativos sobre la probabilidad de default.
+
+El propósito del préstamo, aunque incluido en ambos modelos, mostró efectos marginalmente significativos o no significativos en varias categorías, sugiriendo que su poder discriminativo es limitado cuando se controla por variables financieras cuantitativas.
+Esto indica que las diferencias en el riesgo asociado al destino del crédito pueden estar mediadas principalmente por otras características del solicitante (capacidad de pago, historial) más que por el propósito en sí mismo.
+
+El monto del préstamo presentó un efecto positivo sobre el incumplimiento, coherente con la hipótesis de que obligaciones mayores incrementan la carga mensual y alargan el horizonte de exposición al riesgo, especialmente en ausencia de ajustes proporcionales en las condiciones o capacidad de pago del solicitante.
+
+La construcción de una muestra balanceada mediante undersampling (5,000 casos por clase) permitió entrenar modelos sin sesgos hacia la clase mayoritaria, mejorando la sensibilidad en la detección de incumplimientos.
+Esta decisión metodológica fue apropiada para el contexto de evaluación de algoritmos, aunque debe reconocerse que la prevalencia real en la población original (aproximadamente 20% de incumplimientos) implica que las métricas obtenidas podrían variar en aplicaciones operativas donde se preserve el desbalance natural.
+
+El uso de validación cruzada estratificada y la búsqueda sistemática de hiperparámetros en KNN garantizaron robustez en la selección de modelos, minimizando el riesgo de sobreajuste.
+La estandarización de variables numéricas y el tratamiento adecuado de valores extremos mediante filtros justificados contribuyeron a la calidad de los datos empleados en el modelado.
+
+La fijación de semillas aleatorias (set.seed(28)) en todas las operaciones estocásticas aseguró reproducibilidad, un requisito esencial para la validación científica y la replicabilidad de los resultados.
+
+**¿Logró el estudio responder al objetivo de investigación?**
+
+Los modelos desarrollados demostraron capacidad para identificar patrones de riesgo y clasificar solicitantes con un desempeño parcialmente superior al azar, cumpliendo así con el propósito de comparar dos aproximaciones metodológicas (paramétrica vs. no paramétrica) y evaluar su aplicabilidad en scoring crediticio.
+Sin embargo, los niveles de exactitud y AUC obtenidos (cercanos al 60% y 0.65 respectivamente) son insuficientes para sostener un sistema de decisión crediticia operativo sin complementos adicionales.
+
+En términos técnicos, el estudio evidenció que las variables financieras tradicionales (ingreso, DTI, FICO, monto) contienen señal predictiva real, pero esta señal es limitada.
+La brecha entre el desempeño observado y el desempeño óptimo sugiere que existen factores de riesgo no capturados por las variables disponibles, tales como: características cualitativas del empleo, estabilidad laboral, estructura del hogar, historial de pagos no financieros, comportamiento transaccional, o incluso variables macroeconómicas y temporales que podrían modular el riesgo de incumplimiento.
+
+Desde una perspectiva práctica, ninguno de los dos modelos alcanzó niveles de sensibilidad y especificidad suficientes para ser implementados como herramienta única de decisión crediticia.
+La tasa de falsos negativos (préstamos clasificados como pagados que terminan en incumplimiento) osciló entre 36% y 44%, lo que implicaría aceptar solicitantes de alto riesgo con consecuencias financieras adversas.
+Simultáneamente, las tasas de falsos positivos (préstamos clasificados como incumplimientos que en realidad se pagarían) oscilaron entre 42% y 46%, lo que limitaría el acceso al crédito de solicitantes viables y reduciría la rentabilidad de la cartera.
+
+-   
+
+Con base en los hallazgos, se proponen varias estrategias para mejorar la práctica crediticia.
+La incorporación de variables adicionales, como antigüedad laboral, tipo de contrato o comportamiento transaccional, puede enriquecer la base de datos y potenciar la capacidad predictiva.
+Además, la adopción de modelos ensemble, que combinan múltiples algoritmos para captar relaciones complejas, representa una prometedora vía para superar las limitaciones de modelos individuales.
+
+La segmentación de cartera permite adaptar modelos específicos a grupos homogéneos, optimizando la precisión según características particulares.
+Es recomendable también implementar ajustes dinámicos en los umbrales de decisión para adaptarse al apetito de riesgo y condiciones del mercado.
+En la práctica, un sistema híbrido que integre modelos estadísticos y reglas de negocio, junto con monitoreo continuo y recalibración, garantizará mayor robustez y adaptabilidad frente a cambios.
+
+No obstante, es importante reconocer las limitaciones del análisis realizado.
+El uso de undersampling y la exclusión de valores extremos pueden sesgar las métricas obtenidas, y la base pública carece de información detallada que está disponible en entornos reales de crédito.
+Tampoco se controlaron efectos temporales ni se aplicó validación cruzada extensa, lo que limita la generalización de los resultados.
+
+Finalmente, el estudio confirma la viabilidad del aprendizaje supervisado para la clasificación de riesgo crediticio, pero evidencia que los modelos Logit y KNN por sí solos en estas condiciones podrian no ser suficientes para aplicaciones operativas directas.
+Cada enfoque tiene fortalezas y debilidades complementarias, y la mejora continua mediante inclusive más variables, técnicas avanzadas y controles éticos es clave para su aplicación práctica.
+
+# Bibliografia
+
+-   Wooldridge, J. M. (2012). Introductory Econometrics: A Modern Approach (5ª ed.). South-Western Cengage Learning.​
+
+-   Montgomery, D. C., Peck, E. A., & Vining, G. G. (2012). Introduction to Linear Regression Analysis (5ª ed.). John Wiley & Sons. ISBN: 978-0-470-54281-1.​
+
+-   Kutner, M. H., Nachtsheim, C. J., Neter, J., & Li, W. (2005). Applied Linear Statistical Models (5ª ed.). McGraw-Hill Irwin. ISBN: 978-0-07-310874-2.​
+
+-   Gujarati, D. N., & Porter, D. C. (2009). Basic Econometrics (5ª ed.). McGraw-Hill Irwin.​
+
+-   Anderson, D. R., Sweeney, D. J., & Williams, T. A. (2011). Statistics for Business and Economics (11ª ed.). South-Western Cengage Learning.​
+
+-   James, G., Witten, D., Hastie, T., & Tibshirani, R. (2013). An Introduction to Statistical Learning: with Applications in R. Springer. ISBN: 978-1-4614-7137-0.​
+
+-   Hastie, T., Tibshirani, R., & Friedman, J. (2009). The Elements of Statistical Learning: Data Mining, Inference, and Prediction (2ª ed.). Springer Series in Statistics. ISBN: 978-0-387-84857-0.​
+
+-   Bishop, C. M. (2006). Pattern Recognition and Machine Learning. Springer. ISBN: 978-0-387-31073-2.​
+
+-   Murphy, K. P. (2012). Machine Learning: A Probabilistic Perspective. The MIT Press. ISBN: 978-0-262-01802-9.​
+
+-   Breiman, L. (2001). Random Forests. Machine Learning, 45(1), 5-32.​
+
+-   Friedman, J. H. (2001). Greedy Function Approximation: A Gradient Boosting Machine. The Annals of Statistics, 29(5), 1189-1232.​
+
+-   Fix, E., & Hodges, J. L. (1951). Discriminatory Analysis: Nonparametric Discrimination: Consistency Properties. USAF School of Aviation Medicine, Randolph Field, Texas. Project 21-49-004, Report 4.​
+
+-   Cunningham, P., & Delany, S. J. (2020). k-Nearest Neighbour Classifiers: 2nd Edition (with Python examples). ACM Computing Surveys, 54(6). arXiv:2004.04523.
+
+-   Paredes, D. (2024). Aprendizaje supervisado. <https://bookdown.org/dparedesi/data-science-con-r/aprendizaje-supervisado.html>\
+-   Ariza-Garzón, M. J., Sanz-Guerrero, M., Javier, A. G., & Club, L. (2024). Lending Club loan dataset for granting models. Zenodo. <https://doi.org/10.5281/zenodo.11295916>
+-   James, G., Witten, D., Hastie, T. & Tibshirani, R. (2021). An Introduction to Statistical Learning with Applications in R (2nd ed.). Springer.\
+-   Portilla, J., et al. (2025). Modelo de regresión lineal para el análisis del ingreso de los hogares en la región Pacífica (ECV 2024). Publicado en RPubs: <https://rpubs.com/joanaguirre04/1353677>
+:::
+
+------------------------------------------------------------------------
+
+::: academic-footer
+**Universidad del Valle** \| *Facultad de ingenieria* \| Gestion de datos
+:::
+
+```{=html}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Smooth scroll para navegación académica
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    });
+  });
+  
+  // Resaltado de sección activa en TOC
+  const sections = document.querySelectorAll('h2, h3');
+  const navLinks = document.querySelectorAll('.tocify-item a');
+  
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const sectionHeight = section.clientHeight;
+      if (scrollY >= (sectionTop - 100)) {
+        current = section.getAttribute('id');
+      }
+    });
+    
+    navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === `#${current}`) {
+        link.classList.add('active');
+      }
+    });
+  });
+});
+</script>
+```
+
+```{=html}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Crear botón global
+  const globalToggle = document.createElement("button");
+  globalToggle.className = "global-code-toggle";
+  globalToggle.innerHTML = "Control de Código";
+  document.body.appendChild(globalToggle);
+
+  // Estado global
+  let allCodeVisible = true;
+
+  // Función para crear controles individuales
+  function initializeCodeToggles() {
+    const codeChunks = document.querySelectorAll("pre.r, pre.python, pre.sourceCode");
+    
+    codeChunks.forEach((chunk, index) => {
+      // Crear contenedor
+      const container = document.createElement("div");
+      container.className = "code-chunk";
+      
+      // Crear header
+      const header = document.createElement("div");
+      header.className = "code-header";
+      
+      // Obtener el lenguaje del código
+      const language = chunk.className.includes("r") ? "R" : 
+                      chunk.className.includes("python") ? "Python" : "Código";
+      
+      header.innerHTML = `
+        <div class="chunk-title">
+          <span class="code-status visible"></span>
+          ${language} - Chunk ${index + 1}
+        </div>
+        <div class="toggle-icon">▼</div>
+      `;
+      
+      // Crear contenido
+      const content = document.createElement("div");
+      content.className = "code-content expanded";
+      content.appendChild(chunk.cloneNode(true));
+      
+      // Reemplazar el chunk original
+      chunk.parentNode.replaceChild(container, chunk);
+      container.appendChild(header);
+      container.appendChild(content);
+      
+      // Agregar evento de click
+      header.addEventListener("click", function() {
+        const isExpanded = content.classList.contains("expanded");
+        const icon = this.querySelector(".toggle-icon");
+        const status = this.querySelector(".code-status");
+        
+        if (isExpanded) {
+          content.classList.remove("expanded");
+          content.classList.add("collapsed");
+          icon.classList.add("rotated");
+          status.classList.remove("visible");
+          status.classList.add("hidden");
+        } else {
+          content.classList.remove("collapsed");
+          content.classList.add("expanded");
+          icon.classList.remove("rotated");
+          status.classList.remove("hidden");
+          status.classList.add("visible");
+        }
+      });
+    });
+  }
+
+  // Función para toggle global
+  function toggleAllCode() {
+    const codeContents = document.querySelectorAll(".code-content");
+    const headers = document.querySelectorAll(".code-header");
+    
+    if (allCodeVisible) {
+      // Ocultar todo
+      codeContents.forEach(content => {
+        content.classList.remove("expanded");
+        content.classList.add("collapsed");
+      });
+      headers.forEach(header => {
+        const icon = header.querySelector(".toggle-icon");
+        const status = header.querySelector(".code-status");
+        icon.classList.add("rotated");
+        status.classList.remove("visible");
+        status.classList.add("hidden");
+      });
+      globalToggle.innerHTML = "Mostrar Todo el Código";
+      allCodeVisible = false;
+    } else {
+      // Mostrar todo
+      codeContents.forEach(content => {
+        content.classList.remove("collapsed");
+        content.classList.add("expanded");
+      });
+      headers.forEach(header => {
+        const icon = header.querySelector(".toggle-icon");
+        const status = header.querySelector(".code-status");
+        icon.classList.remove("rotated");
+        status.classList.remove("hidden");
+        status.classList.add("visible");
+      });
+      globalToggle.innerHTML = "Ocultar Todo el Código";
+      allCodeVisible = true;
+    }
+  }
+
+  // Inicializar
+  initializeCodeToggles();
+  
+  // Evento para el botón global
+  globalToggle.addEventListener("click", toggleAllCode);
+
+  // Agregar contenedor de controles globales
+  const globalControls = document.createElement("div");
+  globalControls.className = "code-toggle-container";
+  globalControls.innerHTML = `
+    <h4 style="margin-top: 0; color: var(--primary-red);">Controles de Visualización de Código</h4>
+    <p style="margin-bottom: 1rem; color: var(--dark-red);">
+      Utilice los siguientes controles para gestionar la visualización del código en este documento
+    </p>
+    <button class="code-toggle-btn" onclick="toggleAllCode()">Mostrar/Ocultar Todo el Código</button>
+    <button class="code-toggle-btn secondary" onclick="expandAllCode()">Expandir Todo</button>
+    <button class="code-toggle-btn secondary" onclick="collapseAllCode()">Contraer Todo</button>
+  `;
+
+  // Insertar después del primer h1
+  const firstHeading = document.querySelector("h1");
+  if (firstHeading) {
+    firstHeading.parentNode.insertBefore(globalControls, firstHeading.nextSibling);
+  }
+
+  // Funciones globales para los botones
+  window.toggleAllCode = toggleAllCode;
+  window.expandAllCode = function() {
+    const codeContents = document.querySelectorAll(".code-content");
+    const headers = document.querySelectorAll(".code-header");
+    
+    codeContents.forEach(content => {
+      content.classList.remove("collapsed");
+      content.classList.add("expanded");
+    });
+    headers.forEach(header => {
+      const icon = header.querySelector(".toggle-icon");
+      const status = header.querySelector(".code-status");
+      icon.classList.remove("rotated");
+      status.classList.remove("hidden");
+      status.classList.add("visible");
+    });
+    globalToggle.innerHTML = "Ocultar Todo el Código";
+    allCodeVisible = true;
+  };
+
+  window.collapseAllCode = function() {
+    const codeContents = document.querySelectorAll(".code-content");
+    const headers = document.querySelectorAll(".code-header");
+    
+    codeContents.forEach(content => {
+      content.classList.remove("expanded");
+      content.classList.add("collapsed");
+    });
+    headers.forEach(header => {
+      const icon = header.querySelector(".toggle-icon");
+      const status = header.querySelector(".code-status");
+      icon.classList.add("rotated");
+      status.classList.remove("visible");
+      status.classList.add("hidden");
+    });
+    globalToggle.innerHTML = "Mostrar Todo el Código";
+    allCodeVisible = false;
+  };
+});
+</script>
+```
+
+```{=html}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+```
