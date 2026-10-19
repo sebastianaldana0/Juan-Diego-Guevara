@@ -1,0 +1,2773 @@
+---
+title: "Clasificación del Acceso Universal a la Electricidad en el Mundo mediante KNN y Regresión Logística"
+subtitle: "Aguirre Aldana Joan Sebastian, Barros Rayo Alejandro, Muñoz Portela Diego, Portilla Aguirre Johan Camilo"
+author: ""
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: tango
+    toc: true
+    toc_depth: 4
+    number_sections: true
+    fig_width: 8
+    fig_height: 5
+    fig_caption: true
+    dev: "png"
+    keep_md: false
+    self_contained: true
+    css: Sebastian-styles.css
+    code_folding: none
+editor_options:
+  markdown:
+    wrap: sentence
+---
+
+```{r Librerias, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  out.width = "85%",
+  comment = ""
+)
+#Librerias
+
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(forcats)
+library(purrr)
+library(ggplot2)
+library(class)
+library(caret)
+library(pROC)
+library(kableExtra)
+library(knitr)
+library(ggcorrplot)
+library(scales)
+library(broom)
+library(DT)
+library(htmltools)
+library(plotly)
+```
+
+```{r tema grafias, include=FALSE}
+TS <- function() {
+  theme_minimal(base_size = 12) +
+    theme(
+      text = element_text(
+        color = "#2c2c2c"
+      ),
+      plot.title = element_text(
+        family = "Playfair Display",
+        face = "bold",
+        color = "#FF0000",
+        size = rel(1.4),
+        hjust = 0.5,
+        margin = margin(b = 15)
+      ),
+      plot.subtitle = element_text(
+        family = "Source Serif Pro",
+        color = "#CC0000",
+        size = rel(1.0),
+        hjust = 0.5,
+        margin = margin(b = 20)
+      ),
+      plot.caption = element_text(
+        family = "Source Serif Pro",
+        color = "#666666",
+        size = rel(0.8),
+        hjust = 1,
+        face = "italic"
+      ),
+      axis.title = element_text(
+        family = "Playfair Display",
+        color = "#990000",
+        size = rel(1.0),
+        face = "bold"
+      ),
+      axis.text = element_text(
+        color = "#333333",
+        size = rel(0.9)
+      ),
+      legend.title = element_text(
+        family = "Playfair Display",
+        color = "#990000",
+        face = "bold",
+        size = rel(0.9)
+      ),
+      legend.text = element_text(
+        color = "#333333",
+        size = rel(0.8)
+      ),
+      panel.background = element_rect(fill = "#FFFDF5", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.grid.major = element_line(
+        color = "#FFE5E5",
+        linewidth = 0.3,
+        linetype = "solid"
+      ),
+      panel.grid.minor = element_line(
+        color = "#FFE5E5",
+        linewidth = 0.1,
+        linetype = "solid"
+      ),
+      panel.border = element_rect(
+        fill = NA,
+        color = "#FFE5E5",
+        linewidth = 0.5
+      ),
+      axis.line = element_line(
+        color = "#FF3333",
+        linewidth = 0.5
+      ),
+      axis.ticks = element_line(
+        color = "#FF3333",
+        linewidth = 0.5
+      ),
+      legend.background = element_rect(
+        fill = "#FFFDF5",
+        color = "#FFE5E5"
+      ),
+      legend.key = element_rect(
+        fill = "#FFFDF5",
+        color = NA
+      ),
+      legend.position = "top",
+      legend.justification = "center",
+      plot.margin = margin(20, 20, 20, 20),
+      panel.spacing = unit(1, "lines"),
+      strip.background = element_rect(
+        fill = "#FF0000",
+        color = "#CC0000"
+      ),
+      strip.text = element_text(
+        family = "Playfair Display",
+        color = "white",
+        face = "bold",
+        size = rel(0.9)
+      )
+    )
+}
+
+scale_fill_sebastian <- function(palette = "main", ...) {
+  scale_fill_manual(
+    values = c(
+      sebastian_colors["primary_red"],
+      sebastian_colors["secondary_red"], 
+      sebastian_colors["accent_red"],
+      sebastian_colors["gold"],
+      sebastian_colors["dark_red"]
+    ),
+    ...
+  )
+}
+
+
+
+SC <- c(
+  primary_red = "#FF0000",
+  secondary_red = "#CC0000", 
+  accent_red = "#FF3333",
+  light_red = "#FFE5E5",
+  dark_red = "#990000",
+  gold = "#FFD100",
+  parchment = "#FFFDF5",
+  white = "#FFFFFF",
+  gray_text = "#333333"
+)
+
+set_sebastian_theme <- function() {
+  theme_set(TS())
+  update_geom_defaults("bar", list(fill = sebastian_colors["primary_red"]))
+  update_geom_defaults("col", list(fill = sebastian_colors["primary_red"]))
+  update_geom_defaults("point", list(color = sebastian_colors["primary_red"]))
+  update_geom_defaults("line", list(color = sebastian_colors["primary_red"]))
+  update_geom_defaults("boxplot", list(fill = sebastian_colors["light_red"]))
+  update_geom_defaults("violin", list(fill = sebastian_colors["light_red"]))
+  update_geom_defaults("density", list(fill = sebastian_colors["light_red"]))
+}
+  
+scale_color_sebastian <- function(palette = "main", ...) {
+  scale_color_manual(
+    values = c(
+      sebastian_colors["primary_red"],
+      sebastian_colors["secondary_red"],
+      sebastian_colors["accent_red"],
+      sebastian_colors["gold"],
+      sebastian_colors["dark_red"]
+    ),
+    ...
+  )
+}
+
+```
+
+
+```{r Tema, include=FALSE}
+Sebastian_css <- "
+
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@300;400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@300;400;600&display=swap');
+
+:root {
+  --primary-red: #FF0000;       /* Rojo puro y vibrante */
+  --secondary-red: #CC0000;     /* Rojo más oscuro para contraste */
+  --accent-red: #FF3333;        /* Rojo más suave para detalles */
+  --light-red: #FFE5E5;         /* Fondo suave rojo clarísimo */
+  --dark-red: #990000;          /* Rojo oscuro para texto o bordes */
+  --gold: #FFD100;              /* Dorado Univalle para acentos */
+  --parchment: #FFFDF5;         /* Base crema suave */
+  --W: #FFFFFF;
+  --gris-texto: #333333;
+}
+
+body {
+  font-family: 'Source Serif Pro', 'Times New Roman', serif;
+  font-weight: 400;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background-color: var(--parchment);
+  font-size: 16px;
+}
+
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  box-shadow: 0 0 30px rgba(122, 28, 28, 0.08);
+  border-left: 1px solid var(--light-red);
+  border-right: 1px solid var(--light-red);
+}
+
+
+/* ENCABEZADOS ACADÉMICOS - CORREGIDOS A ROJOS */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', 'Times New Roman', serif;
+  color: var(--primary-red) !important;
+  border-bottom: none;
+  margin-top: 2.5rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 3px double var(--gold);
+  letter-spacing: -0.5px;
+  color: var(--primary-red) !important;
+}
+
+h2 {
+  font-size: 2.1rem;
+  border-left: 5px solid var(--accent-red);
+  padding-left: 1.2rem;
+  margin-top: 3.5rem;
+  background: linear-gradient(90deg, var(--light-red) 0%, transparent 100%);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  color: var(--secondary-red) !important;
+}
+
+h3 {
+  font-size: 1.6rem;
+  color: var(--accent-red) !important;
+  border-bottom: 2px solid var(--light-red);
+  padding-bottom: 0.7rem;
+  margin-top: 2.5rem;
+}
+
+h4 {
+  font-size: 1.4rem;
+  color: var(--secondary-red) !important;
+  margin-top: 2rem;
+  font-weight: 600;
+}
+
+h5 {
+  font-size: 1.2rem;
+  color: var(--accent-red) !important;
+  margin-top: 1.5rem;
+}
+
+h6 {
+  font-size: 1.1rem;
+  color: var(--dark-red) !important;
+  margin-top: 1.5rem;
+  font-style: italic;
+}
+
+/* SUBTÍTULOS Y ELEMENTOS DE TEXTO */
+.subtitle {
+  color: var(--W) !important;
+  font-family: 'Source Serif Pro', serif;
+  font-size: 1.3rem;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-weight: 400;
+}
+
+.caption {
+  color: var(--accent-red) !important;
+  font-family: 'Source Serif Pro', serif;
+  font-size: 0.95rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+
+
+
+/* HEADER ACADÉMICO */
+.page-header {
+  background: linear-gradient(135deg, var(--dark-red) 0%, var(--primary-red) 100%) !important;
+  color: white;
+  padding: 5rem 2rem !important;
+  text-align: center;
+  font-family: 'Playfair Display', serif;
+  border-bottom: 5px solid var(--gold);
+  margin-bottom: 3rem !important;
+}
+
+.page-header h1 {
+  color: white !important;
+  font-size: 3.3rem;
+  font-weight: 700;
+  border-bottom: none;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+  letter-spacing: -0.5px;
+}
+
+.page-header h2 {
+  color: rgba(255,255,255,0.95) !important;
+  font-size: 1.9rem;
+  font-weight: 300;
+  border-left: none;
+  padding-left: 0;
+  font-family: 'Source Serif Pro', serif;
+  background: none;
+  padding: 0;
+}
+
+/* FOOTER ACADÉMICO */
+.academic-footer {
+  text-align: center;
+  color: var(--secondary-red);
+  margin-top: 5rem;
+  padding: 3rem 2rem;
+  border-top: 3px double var(--light-red);
+  font-family: 'Playfair Display', serif;
+  background: linear-gradient(135deg, var(--parchment) 0%, white 100%);
+  border-radius: 8px 8px 0 0;
+}
+
+/* MEJORAS PARA GRÁFICOS */
+.plotly.html-widget {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  padding: 1rem;
+  background: white;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+  
+  h1 {
+    font-size: 2.2rem;
+  }
+  
+  h2 {
+    font-size: 1.8rem;
+  }
+  
+  .page-header {
+    padding: 3rem 1rem !important;
+  }
+  
+  .tocify {
+    width: 280px !important;
+  }
+  
+  .chunk-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}
+
+/* Agrega esto al final de tu Sebastian-styles.css */
+
+/* SISTEMA DE TOGGLE PARA CÓDIGO */
+.code-toggle-container {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--light-red);
+  border-radius: 10px;
+  border-left: 4px solid var(--accent-red);
+  box-shadow: 0 4px 12px rgba(179, 8, 56, 0.1);
+}
+
+.code-toggle-btn {
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(122, 28, 28, 0.3);
+  margin: 0 0.5rem;
+}
+
+.code-toggle-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(122, 28, 28, 0.4);
+  background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
+}
+
+/* CONTENEDORES DE CÓDIGO CON TOGGLE */
+.code-chunk {
+  margin: 2rem 0;
+  border: 2px solid var(--light-red);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+}
+
+.code-header {
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.code-header:hover {
+  background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
+}
+
+.chunk-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.toggle-icon {
+  font-family: 'Source Serif Pro', serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.code-content {
+  background: #1e1e1e;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.code-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.code-content.expanded {
+  max-height: 5000px;
+  opacity: 1;
+}
+
+
+/* BOTÓN FLOTANTE GLOBAL */
+.global-code-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
+  color: white;
+  border: none;
+  padding: 0.8rem 1.2rem;
+  border-radius: 50px;
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(179, 8, 56, 0.4);
+  transition: all 0.3s ease;
+}
+
+.global-code-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(179, 8, 56, 0.6);
+}
+
+/* INDICADOR DE ESTADO */
+.code-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.code-status.visible {
+  background: #4CAF50;
+}
+
+.code-status.hidden {
+  background: #ff9800;
+}
+* TOC - TABLA DE CONTENIDOS MEJORADA */
+#TOC {
+  background: linear-gradient(135deg, var(--parchment) 0%, white 100%) !important;
+  border: 2px solid var(--light-red) !important;
+  border-radius: 12px !important;
+  padding: 2rem !important;
+  margin: 2rem 0 !important;
+  box-shadow: 0 4px 20px rgba(122, 28, 28, 0.1) !important;
+  font-family: 'Playfair Display', serif !important;
+}
+
+#TOC::before {
+  content: \"Tabla de Contenidos\";
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary-red);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--gold);
+}
+
+#TOC ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+}
+
+#TOC li {
+  margin: 0.8rem 0 !important;
+  padding: 0 !important;
+  border-left: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+#TOC li:hover {
+  border-left-color: var(--accent-red);
+  background: var(--light-red);
+}
+
+#TOC a {
+  color: var(--secondary-red) !important;
+  text-decoration: none !important;
+  font-family: 'Source Serif Pro', serif !important;
+  font-size: 1rem !important;
+  padding: 0.5rem 1rem !important;
+  display: block !important;
+  transition: all 0.3s ease !important;
+  border-radius: 4px;
+}
+
+#TOC a:hover {
+  color: var(--primary-red) !important;
+  background: var(--light-red) !important;
+  transform: translateX(5px);
+}
+
+#TOC ul ul {
+  padding-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+}
+
+#TOC ul ul a {
+  font-size: 0.95rem !important;
+  color: var(--dark-red) !important;
+  padding: 0.3rem 1rem !important;
+}
+
+#TOC ul ul li {
+  margin: 0.5rem 0 !important;
+}
+
+/* ESTILOS PARA EL CÓDIGO - TEMA RSTUDIO (CLARO) */
+pre.sourceCode {
+  display: block !important;
+  background: var(--W) !important;
+  color: var(--gris-texto) !important;
+  padding: 15px !important;
+  border: none !important;
+  border-radius: 8px !important;
+  overflow-x: auto;
+  margin: 15px 0 !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border-left: 4px solid var(--primary-red) !important;
+  box-shadow: 0 2px 4px rgba(179, 25, 66, 0.1);
+}
+
+
+pre.sourceCode code {
+  background: transparent !important;
+  color: #333 !important;
+  padding: 0 !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+}
+
+
+pre.sourceCode code .kw { color: var(--primary-red); font-weight: bold; } /* Keywords */
+pre.sourceCode code .dt { color: var(--gold); } /* Data types */
+pre.sourceCode code .dv { color: var(--gold); } /* Numeric values */
+pre.sourceCode code .st { color: var(--secondary-red); } /* Strings */
+pre.sourceCode code .co { color: #666; font-style: italic; } /* Comments */
+pre.sourceCode code .ot { color: var(--primary-red); } /* Operators */
+pre.sourceCode code .fu { color: var(--primary-red); } /* Functions */
+pre.sourceCode code .va { color: var(--accent-red); } /* Variables */
+pre.sourceCode code .ident { color: var(--accent-red); } /* Identifiers */
+
+/* Estilo para números de línea si se requieren */
+pre.sourceCode .number {
+  color: var(--secondary-red);
+  font-weight: bold;
+}
+
+/* Scrollbar personalizado para el bloque de código */
+pre.sourceCode::-webkit-scrollbar {
+  height: 8px;
+  background-color: var(--W);
+}
+
+pre.sourceCode::-webkit-scrollbar-thumb {
+  background-color: var(--gold);
+  border-radius: 4px;
+}
+
+pre.sourceCode::-webkit-scrollbar-thumb:hover {
+  background-color: var(--gold);
+}
+
+.main-content p {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  margin-bottom: 1.2rem;
+}
+
+/* ESTILOS PARA TABLAS ACADÉMICAS */
+.academic-table {
+  font-family: 'Source Serif Pro', serif !important;
+  border: 2px solid var(--light-red) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 20px rgba(122, 28, 28, 0.1) !important;
+  margin: 2rem auto !important;
+}
+
+.academic-table thead th {
+  font-family: 'Playfair Display', serif !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  padding: 1.2rem !important;
+  border-bottom: 3px solid var(--gold) !important;
+}
+
+.academic-table tbody tr {
+  transition: all 0.3s ease !important;
+}
+
+.academic-table tbody tr:hover {
+  background-color: var(--light-red) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(179, 8, 56, 0.1) !important;
+}
+
+.academic-table td {
+  padding: 1rem !important;
+  border-bottom: 1px solid var(--light-red) !important;
+  vertical-align: top !important;
+}
+
+.academic-table caption {
+  caption-side: top !important;
+  font-family: 'Playfair Display', serif !important;
+  font-weight: 700 !important;
+  color: var(--primary-red) !important;
+  font-size: 1.3rem !important;
+  margin-bottom: 1rem !important;
+  padding: 1rem !important;
+  background: linear-gradient(90deg, var(--light-red) 0%, transparent 100%) !important;
+  border-left: 5px solid var(--accent-red) !important;
+}
+
+/* Pie de tabla */
+.academic-table tfoot tr {
+  background: var(--parchment) !important;
+}
+
+.academic-table tfoot td {
+  border-top: 2px dashed var(--gold) !important;
+  font-style: italic !important;
+  color: var(--secondary-red) !important;
+  padding: 1rem !important;
+  text-align: center !important;
+}
+
+
+
+"
+
+writeLines(Sebastian_css, "Sebastian-styles.css")
+```
+
+```{r funciones auxiliares, include=FALSE}
+# Funciones de apoyo para mantener un estilo homogéneo en tablas y gráficos
+
+fuente_datos <- "Fuente: Elaboración propia con base en Our World in Data y Banco Mundial (WDI), 2000-2022"
+
+# Formato numérico en español (punto para miles y coma para decimales)
+num <- function(x, accuracy = 1) comma(x, accuracy = accuracy, big.mark = ".", decimal.mark = ",")
+
+# Estilo común para las tablas kable
+tabla_estilo <- function(df, titulo, nota = fuente_datos, col.names = NA, align = NULL, escape = TRUE) {
+  df %>%
+    kbl(
+      caption = titulo,
+      col.names = col.names,
+      align = align,
+      escape = escape
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = FALSE,
+      font_size = 14,
+      position = "center"
+    ) %>%
+    row_spec(0, background = "#990000", color = "white", bold = TRUE) %>%
+    column_spec(1, bold = TRUE) %>%
+    footnote(
+      general = nota,
+      general_title = "Nota: ",
+      footnote_as_chunk = TRUE
+    )
+}
+
+# Estilo común para los gráficos plotly
+estilo_plotly <- function(p, titulo, x_titulo = "", y_titulo = "", fuente = fuente_datos) {
+  p %>%
+    layout(
+      title = list(
+        text = paste0("<b>", titulo, "</b>"),
+        font = list(family = "Playfair Display", size = 20, color = SC[["primary_red"]]),
+        x = 0.05
+      ),
+      xaxis = list(
+        title = list(text = x_titulo, font = list(family = "Playfair Display", size = 14, color = SC[["dark_red"]])),
+        gridcolor = SC[["light_red"]],
+        zerolinecolor = SC[["light_red"]]
+      ),
+      yaxis = list(
+        title = list(text = y_titulo, font = list(family = "Playfair Display", size = 14, color = SC[["dark_red"]])),
+        gridcolor = SC[["light_red"]],
+        zerolinecolor = SC[["light_red"]]
+      ),
+      plot_bgcolor = SC[["parchment"]],
+      paper_bgcolor = "white",
+      font = list(family = "Source Serif Pro", size = 12),
+      legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = "center"),
+      margin = list(l = 80, r = 50, t = 80, b = 120),
+      annotations = list(
+        list(
+          x = 1, y = -0.32, text = fuente, showarrow = FALSE,
+          xref = "paper", yref = "paper", xanchor = "right",
+          font = list(family = "Source Serif Pro", size = 10, color = SC[["secondary_red"]])
+        )
+      )
+    ) %>%
+    config(
+      displayModeBar = TRUE,
+      modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+      displaylogo = FALSE
+    )
+}
+
+# Tabla con todas las métricas que entrega confusionMatrix()
+tabla_metricas <- function(cm, titulo) {
+  data.frame(
+    "Métrica" = c(
+      "Exactitud (Accuracy)",
+      "Intervalo de Confianza 95%",
+      "Tasa de No Información",
+      "Valor P [Exactitud > TNI]",
+      "Kappa de Cohen",
+      "Valor P Test de McNemar",
+      "Sensibilidad (Recall)",
+      "Especificidad",
+      "Valor Predictivo Positivo (Precision)",
+      "Valor Predictivo Negativo",
+      "F1",
+      "Prevalencia",
+      "Tasa de Detección",
+      "Prevalencia de Detección",
+      "Exactitud Balanceada"
+    ),
+    "Descripción" = c(
+      "Proporción total de predicciones correctas",
+      "Intervalo de confianza para la exactitud",
+      "Tasa al predecir siempre la clase mayoritaria",
+      "Significancia estadística vs tasa base",
+      "Acuerdo ajustado por azar entre observado y predicho",
+      "Test de simetría entre clasificaciones erróneas",
+      "Capacidad de detectar países con acceso universal (VP / VP+FN)",
+      "Capacidad de detectar países sin acceso universal (VN / VN+FP)",
+      "Acierto cuando predice 'Si' (VP / VP+FP)",
+      "Acierto cuando predice 'No' (VN / VN+FN)",
+      "Media armónica entre precisión y sensibilidad",
+      "Proporción real de observaciones con acceso universal",
+      "Verdaderos positivos sobre el total (VP / total)",
+      "Proporción predicha como 'Si' (VP+FP / total)",
+      "Promedio entre sensibilidad y especificidad"
+    ),
+    "Valor" = c(
+      sprintf("%.4f", cm$overall["Accuracy"]),
+      sprintf("(%.4f, %.4f)", cm$overall["AccuracyLower"], cm$overall["AccuracyUpper"]),
+      sprintf("%.4f", cm$overall["AccuracyNull"]),
+      sprintf("%.2e", cm$overall["AccuracyPValue"]),
+      sprintf("%.4f", cm$overall["Kappa"]),
+      sprintf("%.4f", cm$overall["McnemarPValue"]),
+      sprintf("%.4f", cm$byClass["Sensitivity"]),
+      sprintf("%.4f", cm$byClass["Specificity"]),
+      sprintf("%.4f", cm$byClass["Pos Pred Value"]),
+      sprintf("%.4f", cm$byClass["Neg Pred Value"]),
+      sprintf("%.4f", cm$byClass["F1"]),
+      sprintf("%.4f", cm$byClass["Prevalence"]),
+      sprintf("%.4f", cm$byClass["Detection Rate"]),
+      sprintf("%.4f", cm$byClass["Detection Prevalence"]),
+      sprintf("%.4f", cm$byClass["Balanced Accuracy"])
+    ),
+    check.names = FALSE
+  ) %>%
+    kbl(caption = titulo, align = c("l", "l", "c")) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = FALSE,
+      font_size = 14,
+      position = "center"
+    ) %>%
+    row_spec(0, background = SC[["primary_red"]], color = "white", bold = TRUE) %>%
+    row_spec(c(1, 7, 8, 15), background = "#f9ebea") %>%
+    column_spec(1, bold = TRUE, width = "4cm") %>%
+    column_spec(2, width = "7cm") %>%
+    column_spec(3, width = "2.5cm") %>%
+    footnote(
+      general = "VP = Verdadero Positivo, VN = Verdadero Negativo, FP = Falso Positivo, FN = Falso Negativo. Clase positiva: 'Si' (acceso >= 95%).",
+      general_title = "Leyenda: ",
+      footnote_as_chunk = TRUE
+    )
+}
+
+# Matriz de confusión con formato
+tabla_confusion <- function(cm, titulo) {
+  m <- cm$table
+  data.frame(
+    "Predicción" = c("No (acceso < 95%)", "Si (acceso >= 95%)"),
+    No = c(m["No", "No"], m["Si", "No"]),
+    Si = c(m["No", "Si"], m["Si", "Si"]),
+    check.names = FALSE
+  ) %>%
+    kbl(caption = titulo, align = c("l", "c", "c"), col.names = c("Predicción", "No", "Si")) %>%
+    kable_styling(
+      bootstrap_options = c("basic"),
+      full_width = FALSE,
+      font_size = 14,
+      position = "center"
+    ) %>%
+    add_header_above(c(" " = 1, "Valor Real" = 2), bold = TRUE, background = SC[["primary_red"]], color = "white") %>%
+    row_spec(0, background = SC[["dark_red"]], color = "white", bold = TRUE) %>%
+    row_spec(1:2, background = SC[["parchment"]]) %>%
+    column_spec(1, bold = TRUE, width = "5cm", background = SC[["light_red"]]) %>%
+    footnote(
+      general = "Los valores en la diagonal representan las clasificaciones correctas.",
+      general_title = "Nota: ",
+      footnote_as_chunk = TRUE
+    )
+}
+```
+
+# Introducción {.page-header}
+
+::: academic-card
+El acceso a la electricidad es una de las condiciones materiales más básicas para el desarrollo humano.
+Sin energía eléctrica no es posible refrigerar vacunas y alimentos, iluminar las aulas y los hogares en la noche, bombear agua potable, conectar a la población a internet ni sostener actividades productivas más allá de la agricultura de subsistencia.
+Por esta razón, la Agenda 2030 de las Naciones Unidas incluyó dentro del Objetivo de Desarrollo Sostenible 7 (ODS 7) la meta 7.1: *"garantizar el acceso universal a servicios energéticos asequibles, fiables y modernos"* para el año 2030.
+
+A pesar de los avances de las últimas dos décadas, el más reciente reporte de seguimiento del ODS 7 (IEA, IRENA, UNSD, Banco Mundial y OMS, 2024) estima que todavía cerca de 685 millones de personas en el mundo no tienen electricidad en su vivienda, y que más del 80% de ellas se concentran en África subsahariana.
+La brecha no es homogénea: mientras que la mayoría de los países de Europa, Norteamérica y buena parte de Asia y Sudamérica alcanzaron coberturas cercanas al 100%, otros países conviven con coberturas inferiores al 50%, generalmente asociadas a bajos niveles de ingreso, población mayoritariamente rural y economías dependientes de la agricultura.
+
+En este trabajo se construye una variable binaria que identifica si un país, en un año determinado, ha alcanzado el **acceso (casi) universal a la electricidad**, definido como una cobertura igual o superior al **95% de la población** (1 = Sí, 0 = No).
+El umbral del 95% es un criterio usual en la literatura de seguimiento del ODS 7 para distinguir a los países que ya resolvieron el problema de cobertura (y cuyo reto se desplaza hacia la calidad y la transición energética) de aquellos en los que todavía una fracción relevante de la población permanece excluida.
+
+Clasificar esta variable resulta interesante por varias razones.
+En primer lugar, permite identificar cuáles características estructurales de un país (ingreso, urbanización, densidad poblacional, estructura productiva, dinámica demográfica y geografía) están asociadas a haber alcanzado la cobertura universal, lo que aporta evidencia para la focalización de políticas públicas y de cooperación internacional.
+En segundo lugar, un modelo de clasificación bien calibrado puede usarse como herramienta de alerta: países que el modelo "espera" con acceso universal pero que aún no lo tienen revelan brechas de gestión o de infraestructura que no se explican por sus condiciones estructurales.
+Finalmente, el ejercicio permite comparar dos aproximaciones de aprendizaje supervisado: una paramétrica e interpretable, la **regresión logística (Logit)**, y una no paramétrica basada en distancias, los **K vecinos más cercanos (KNN)**.
+
+El objetivo de este estudio es **desarrollar y comparar modelos de clasificación supervisada (KNN y Logit) que permitan predecir si un país cuenta con acceso a la electricidad para al menos el 95% de su población, a partir de un conjunto de variables económicas, demográficas y geográficas**, y evaluar cuál de los dos modelos resulta más adecuado para este problema.
+:::
+
+# Metodología
+
+::: academic-card
+El estudio adopta un enfoque de aprendizaje supervisado orientado a la clasificación binaria del acceso universal a la electricidad (Sí/No), implementado mediante dos familias de algoritmos: K vecinos más cercanos (KNN) y regresión logística (Logit).
+La metodología se estructuró en cinco etapas que garantizan la reproducibilidad, validez y comparabilidad de los resultados.
+
+## Preparación y construcción de la base de datos
+
+La base principal corresponde al conjunto de datos *Access to electricity vs. GDP per capita* publicado por Our World in Data (OWID), que reúne para cada país y año el porcentaje de la población con acceso a la electricidad (Banco Mundial, indicador EG.ELC.ACCS.ZS), el PIB per cápita en dólares internacionales constantes de 2021 ajustados por paridad de poder adquisitivo (PPA) y la región del mundo a la que pertenece el país.
+
+Dado que esta base solo contiene dos variables explicativas (PIB per cápita y región), se complementó con indicadores de los *World Development Indicators* (WDI) del Banco Mundial y de Gapminder, que se unieron por código ISO del país y año (archivo `variables-adicionales-wdi.csv`):
+
+-   Población urbana (% del total) — WDI: SP.URB.TOTL.IN.ZS.
+-   Densidad poblacional (personas por km²) — WDI: EN.POP.DNST.
+-   Valor agregado de la agricultura (% del PIB) — WDI: NV.AGR.TOTL.ZS.
+-   Tasa de fecundidad (hijos por mujer) — Gapminder / WDI: SP.DYN.TFRT.IN.
+-   Crecimiento poblacional anual (%) — WDI: SP.POP.GROW.
+-   Condición de país sin litoral — clasificación geográfica de Gapminder.
+
+Se eliminaron los agregados regionales de OWID (códigos que inician en "OWID"), se restringió el periodo de análisis a 2000-2022 (años con cobertura completa en todas las variables) y se descartaron las observaciones con información faltante.
+La unidad de análisis es el **país-año**.
+
+## Partición de datos
+
+Como cada país aparece varias veces (una por año), una partición completamente aleatoria de las filas pondría observaciones casi idénticas del mismo país (por ejemplo, Colombia 2015 y Colombia 2016) simultáneamente en el entrenamiento y en la prueba, lo que inflaría artificialmente el desempeño de los modelos (fuga de información).
+Para evitarlo, la partición 75/25 se realizó **por países**: con una semilla fija (`set.seed(0408)`) se seleccionó aleatoriamente el 75% de los países para el conjunto de entrenamiento y el 25% restante para el conjunto de prueba, de modo que los modelos se evalúan sobre países que nunca "vieron".
+
+## Preprocesamiento de variables
+
+El PIB per cápita y la densidad poblacional presentan distribuciones fuertemente asimétricas (pocos países con valores muy altos), por lo que se transformaron con logaritmo natural.
+Dada la sensibilidad del algoritmo KNN a las diferencias de escala, todas las variables numéricas se estandarizaron (z-score) con la media y la desviación estándar del conjunto de entrenamiento, aplicando la misma transformación al conjunto de prueba para evitar fugas de información.
+Las variables categóricas (región y litoral) se convirtieron en variables dummy.
+
+## Modelado y selección de hiperparámetros
+
+### Modelo K-Vecinos Más Cercanos (KNN)
+
+Se implementaron dos variantes del algoritmo KNN:
+
+**KNN básico (paquete class):** se evaluaron valores de k entre 1 y 100 y se calculó la exactitud en el conjunto de prueba para cada uno, seleccionando el k que la maximiza.
+Esta implementación usa únicamente las seis variables numéricas estandarizadas.
+
+**KNN con validación cruzada (paquete caret):** se utilizó la función `train()` con validación cruzada de 5 pliegues **agrupada por país** (`groupKFold`), explorando valores impares de k entre 1 y 101 y optimizando el área bajo la curva ROC (AUC).
+Esta variante incorpora tanto las variables numéricas como las categóricas.
+
+El algoritmo KNN clasifica cada nueva observación según la clase mayoritaria entre sus k vecinos más cercanos en el espacio de características, usando la distancia euclidiana.
+
+### Regresión Logística (Logit)
+
+El modelo de regresión logística se estimó con la función `glm()` con familia binomial y enlace logit, modelando el logaritmo de los odds de tener acceso universal como una combinación lineal de los predictores:
+
+$$
+\ln\left(\frac{P(Y=1 \mid \mathbf{X})}{1-P(Y=1 \mid \mathbf{X})}\right) = \beta_0 + \sum_{j=1}^{p} \beta_j X_j
+$$
+
+El umbral de clasificación se seleccionó con el índice de Youden ($J = \text{Sensibilidad} + \text{Especificidad} - 1$) calculado sobre la curva ROC del **conjunto de entrenamiento**, para que la evaluación en la prueba sea completamente independiente.
+
+### Evaluación y comparación
+
+Ambos modelos se evaluaron en el conjunto de prueba mediante la matriz de confusión y sus métricas derivadas (exactitud, Kappa, sensibilidad, especificidad, valores predictivos, F1 y exactitud balanceada), el AUC de la curva ROC y el puntaje de Brier.
+Adicionalmente, se contrastaron estadísticamente las diferencias entre modelos con la prueba de DeLong (para el AUC) y la prueba de McNemar (para los aciertos y errores pareados).
+:::
+
+## Definición de las variables
+
+La **variable dependiente** es el acceso (casi) universal a la electricidad (**Acceso_95**), construida a partir del porcentaje de la población con acceso a la electricidad:
+
+$$
+Y_{it} =
+\begin{cases}
+1 \; (\text{Si}) & \text{si el acceso a la electricidad del país } i \text{ en el año } t \geq 95\% \\
+0 \; (\text{No}) & \text{si el acceso a la electricidad del país } i \text{ en el año } t < 95\%
+\end{cases}
+$$
+
+Las **variables independientes** se eligieron a partir de la literatura sobre los determinantes de la electrificación:
+
+-   **PIB per cápita (log):** es el principal indicador de la capacidad económica de un país.
+    Un mayor ingreso permite financiar la infraestructura de generación, transmisión y distribución, y aumenta la capacidad de pago de los hogares por el servicio.
+    Se espera una relación positiva con el acceso.
+
+-   **Población urbana (%):** llevar la red eléctrica a zonas urbanas es mucho más barato por usuario que electrificar zonas rurales dispersas.
+    Se espera que una mayor urbanización aumente la probabilidad de acceso universal.
+
+-   **Densidad poblacional (log):** a mayor número de personas por km², menor es la longitud de red necesaria por usuario, lo que reduce los costos de electrificación.
+    Se espera un efecto positivo.
+
+-   **Agricultura (% del PIB):** una alta participación de la agricultura en la economía es característica de países con estructuras productivas menos diversificadas y con más población rural.
+    Se espera un efecto negativo.
+
+-   **Fecundidad (hijos por mujer):** es un indicador sintético del nivel de desarrollo demográfico y social (educación, salud, rol de la mujer).
+    Tasas altas suelen asociarse a hogares rurales y pobres; se espera un efecto negativo.
+
+-   **Crecimiento poblacional (%):** un crecimiento acelerado de la población obliga a expandir la red más rápido solo para mantener la cobertura existente.
+    Se espera un efecto negativo.
+
+-   **Región:** recoge diferencias históricas, institucionales y geográficas entre continentes no capturadas por las demás variables (categoría base: África).
+
+-   **Litoral:** los países sin salida al mar enfrentan mayores costos para importar combustibles y equipos, lo que puede dificultar la expansión de la red (categoría base: con litoral).
+
+```{r Variables}
+
+variables_modelo <- data.frame(
+  Variable = c("Acceso_95", "PIB per cápita", "Población urbana", "Densidad poblacional",
+               "Agricultura", "Fecundidad", "Crecimiento poblacional", "Región", "Litoral"),
+
+  Descripción = c(
+    "Variable dependiente: el país tiene acceso a la electricidad para al menos el 95% de su población.",
+    "Producto interno bruto por habitante, ajustado por paridad de poder adquisitivo.",
+    "Porcentaje de la población que vive en zonas urbanas.",
+    "Número de personas por kilómetro cuadrado de superficie terrestre.",
+    "Valor agregado de la agricultura, silvicultura y pesca como porcentaje del PIB.",
+    "Número promedio de hijos por mujer (tasa global de fecundidad).",
+    "Tasa de crecimiento anual de la población total.",
+    "Región del mundo a la que pertenece el país.",
+    "Indica si el país tiene o no salida al mar."
+  ),
+
+  Tipo_Variable = c(
+    "Categórica (binaria)",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Cuantitativa continua",
+    "Categórica (6 niveles)",
+    "Categórica (binaria)"
+  ),
+
+  Ejemplos_Notas = c(
+    "1 = 'Si' (>= 95%), 0 = 'No' (< 95%).",
+    "USD PPA de 2021. Se usa en logaritmo.",
+    "Porcentaje (0 - 100).",
+    "Personas/km². Se usa en logaritmo.",
+    "Porcentaje del PIB.",
+    "Ej: 1.5, 4.8.",
+    "Porcentaje anual.",
+    "África, Asia, Europa, Norteamérica, Oceanía, Sudamérica.",
+    "'Con litoral', 'Sin litoral'."
+  )
+)
+
+tabla_variables <- kable(
+  variables_modelo,
+  format = "html",
+  col.names = c("Variable", "Descripción", "Tipo de Variable", "Ejemplos / Notas"),
+  align = c('l', 'l', 'l', 'l'),
+  caption = "Tabla 1. Variables utilizadas en el modelo de acceso universal a la electricidad"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#990000", color = "white", bold = TRUE) %>%
+  row_spec(1:9, background = "#FFFDF5") %>%
+  column_spec(1, bold = TRUE, width = "3cm") %>%
+  column_spec(2, width = "6cm") %>%
+  column_spec(3, width = "3cm") %>%
+  column_spec(4, width = "3.5cm") %>%
+  footnote(
+    general = "Elaboración propia con base en Our World in Data, Banco Mundial (WDI) y Gapminder.",
+    general_title = "Fuente: ",
+    footnote_as_chunk = TRUE
+  )
+
+tabla_variables
+```
+
+## Base de datos
+
+```{r Base de datos, warning = FALSE, message = FALSE}
+electricidad_raw <- read_csv("access-to-electricity-vs-gdp-per-capita.csv", show_col_types = FALSE)
+wdi_raw <- read_csv("variables-adicionales-wdi.csv", show_col_types = FALSE)
+
+Base_datos <- electricidad_raw %>%
+  rename(
+    Pais = Entity,
+    Codigo = Code,
+    Año = Year,
+    Acceso = `Share with access to electricity`,
+    PIB_pc = `GDP per capita`,
+    Region = `World region according to OWID`
+  ) %>%
+  filter(!str_starts(Codigo, "OWID"), between(Año, 2000, 2022)) %>%
+  inner_join(wdi_raw, by = c("Codigo" = "Code", "Año" = "Year")) %>%
+  drop_na() %>%
+  mutate(
+    Region = fct_recode(
+      factor(Region),
+      "África" = "Africa",
+      "Europa" = "Europe",
+      "Norteamérica" = "North America",
+      "Oceanía" = "Oceania",
+      "Sudamérica" = "South America"
+    ),
+    Region = fct_relevel(Region, "África"),
+    Litoral = factor(Litoral, levels = c("Con litoral", "Sin litoral")),
+    Acceso_95 = factor(if_else(Acceso >= 95, "Si", "No"), levels = c("No", "Si")),
+    Y = as.integer(Acceso_95 == "Si"),
+    log_PIB = log(PIB_pc),
+    log_Densidad = log(Densidad)
+  ) %>%
+  arrange(Pais, Año)
+
+tabla_interactiva <- Base_datos %>%
+  select(Pais, Año, Region, Litoral, Acceso, Acceso_95, PIB_pc, Urbano, Densidad,
+         Agricultura, Fertilidad, Crec_poblacion) %>%
+  datatable(
+    colnames = c(
+      "País", "Año", "Región", "Litoral", "Acceso (%)", "Acceso >= 95%",
+      "PIB per cápita (USD PPA)", "Población urbana (%)", "Densidad (hab/km²)",
+      "Agricultura (% PIB)", "Fecundidad", "Crec. poblacional (%)"
+    ),
+    filter = 'top',
+    extensions = c('Buttons', 'Scroller'),
+    options = list(
+      pageLength = 10,
+      dom = 'Bfrtip',
+      scrollX = TRUE,
+      scrollY = "400px",
+      scroller = TRUE,
+      buttons = list('copy', 'csv', 'excel', 'pdf', 'print'),
+      language = list(
+        url = '//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json'
+      )
+    ),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: center; color: #FF0000; font-family: "Playfair Display"; font-size: 1.3rem; font-weight: bold;',
+      'Tabla 2. Base de datos de acceso a la electricidad por país y año (2000-2022)'
+    ),
+    class = 'row-border stripe hover order-column',
+    rownames = FALSE,
+    width = '100%'
+  ) %>%
+  formatCurrency(columns = 'PIB_pc', currency = '$', digits = 0, before = TRUE) %>%
+  formatRound(columns = c('Acceso', 'Urbano', 'Densidad', 'Agricultura', 'Fertilidad', 'Crec_poblacion'), digits = 2) %>%
+  formatStyle(
+    'Acceso_95',
+    target = 'row',
+    backgroundColor = styleEqual('No', '#FFE6E6')
+  ) %>%
+  formatStyle(
+    'Acceso_95',
+    backgroundColor = styleEqual('No', '#FF6B6B'),
+    color = styleEqual('No', 'white'),
+    fontWeight = styleEqual('No', 'bold')
+  ) %>%
+  formatStyle(
+    'Acceso',
+    backgroundColor = styleInterval(
+      cuts = c(50, 95),
+      values = c('#FF6B6B', '#FFD8D8', 'white')
+    )
+  )
+
+tabla_interactiva <- tabla_interactiva %>%
+  htmlwidgets::prependContent(
+    htmltools::tags$style(
+      htmltools::HTML("
+        table.dataTable thead th {
+          background-color: #FF0000 !important;
+          color: white !important;
+          font-weight: bold !important;
+        }
+      ")
+    )
+  )
+
+tabla_interactiva
+```
+
+La base final está compuesta por **`r num(nrow(Base_datos))` observaciones país-año**, correspondientes a **`r n_distinct(Base_datos$Codigo)` países** observados entre `r min(Base_datos$Año)` y `r max(Base_datos$Año)`.
+De ellas, el `r percent(mean(Base_datos$Y), accuracy = 0.1, decimal.mark = ",")` corresponde a casos con acceso a la electricidad igual o superior al 95% (Y = 1), por lo que las clases se encuentran razonablemente balanceadas y no fue necesario aplicar técnicas de remuestreo.
+
+# Análisis descriptivo
+
+Con el fin de comprender de manera preliminar la composición y variabilidad de las observaciones, se presenta a continuación un resumen de las principales estadísticas descriptivas de las variables cuantitativas y categóricas, y su relación con el acceso universal a la electricidad.
+
+## Estadísticas descriptivas de las variables cuantitativas
+
+```{r resumen_general}
+vars_cuant <- c(
+  "Acceso (%)" = "Acceso",
+  "PIB per cápita (USD)" = "PIB_pc",
+  "Población urbana (%)" = "Urbano",
+  "Densidad (hab/km²)" = "Densidad",
+  "Agricultura (% PIB)" = "Agricultura",
+  "Fecundidad (hijos/mujer)" = "Fertilidad",
+  "Crec. poblacional (%)" = "Crec_poblacion"
+)
+
+resumen_general <- Base_datos %>%
+  select(all_of(vars_cuant)) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "valor") %>%
+  mutate(Variable = factor(Variable, levels = names(vars_cuant))) %>%
+  group_by(Variable) %>%
+  summarise(
+    Media = mean(valor),
+    Mediana = median(valor),
+    `Desv. Estándar` = sd(valor),
+    `Coef. Variación (%)` = 100 * sd(valor) / mean(valor),
+    Mínimo = min(valor),
+    Máximo = max(valor),
+    .groups = "drop"
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+tabla_estilo(
+  resumen_general,
+  "Tabla 3. Estadísticas descriptivas de las variables cuantitativas",
+  align = c("l", rep("r", 6))
+)
+```
+
+```{r texto descriptivo, include=FALSE}
+d <- function(v, f = mean) num(f(Base_datos[[v]]), accuracy = 0.1)
+```
+
+En promedio, las observaciones registran un acceso a la electricidad de `r d("Acceso")`%, con una mediana de `r d("Acceso", median)`%.
+La mediana superior a la media evidencia una distribución con asimetría negativa: la mayor parte de los países se concentra cerca del 100% de cobertura, mientras que un grupo más reducido presenta coberturas muy bajas (el mínimo es `r d("Acceso", min)`%), que arrastran el promedio hacia abajo.
+
+El PIB per cápita presenta la mayor dispersión relativa de todas las variables: su media (USD `r num(mean(Base_datos$PIB_pc))`) supera ampliamente a la mediana (USD `r num(median(Base_datos$PIB_pc))`), reflejando una fuerte asimetría positiva propia de la distribución mundial del ingreso, en la que unos pocos países muy ricos elevan el promedio.
+Algo similar ocurre con la densidad poblacional, cuyo máximo (`r num(max(Base_datos$Densidad))` hab/km², correspondiente a territorios urbanos como Singapur y Hong Kong) contrasta con una mediana de apenas `r d("Densidad", median)` hab/km².
+Estas asimetrías justifican el uso de la transformación logarítmica en los modelos.
+
+La población urbana promedio es de `r d("Urbano")`%, la agricultura representa en promedio el `r d("Agricultura")`% del PIB, la fecundidad promedio es de `r d("Fertilidad")` hijos por mujer y la población crece en promedio a una tasa de `r d("Crec_poblacion")`% anual, con valores que van desde tasas negativas (países que pierden población por conflictos o emigración, como Timor Oriental en 2000, Siria en 2014 o Ucrania en 2022) hasta tasas muy elevadas en los países del Golfo Pérsico (Catar, Omán y Emiratos Árabes Unidos), explicadas por la llegada masiva de trabajadores extranjeros.
+
+## Distribución de la variable dependiente
+
+```{r Grafica 1}
+dist_y <- Base_datos %>%
+  count(Acceso_95) %>%
+  mutate(
+    Proporcion = n / sum(n),
+    Etiqueta = if_else(Acceso_95 == "Si", "Si (acceso >= 95%)", "No (acceso < 95%)")
+  )
+
+plot_ly(
+  dist_y,
+  x = ~Etiqueta,
+  y = ~n,
+  type = "bar",
+  marker = list(color = c(SC[["light_red"]], SC[["primary_red"]]), line = list(color = SC[["dark_red"]], width = 1.5)),
+  text = ~paste0(num(n), " (", percent(Proporcion, accuracy = 0.1), ")"),
+  textposition = "outside",
+  hovertemplate = "%{x}<br>Observaciones: %{y}<extra></extra>"
+) %>%
+  estilo_plotly(
+    "Figura 1. Distribución de la variable dependiente (Acceso >= 95%)",
+    "Acceso a la electricidad",
+    "Número de observaciones país-año"
+  ) %>%
+  layout(yaxis = list(range = c(0, max(dist_y$n) * 1.2)))
+```
+
+La Figura 1 muestra que `r num(dist_y$n[2])` observaciones (`r percent(dist_y$Proporcion[2], accuracy = 0.1)`) corresponden a países con acceso universal, frente a `r num(dist_y$n[1])` (`r percent(dist_y$Proporcion[1], accuracy = 0.1)`) que no lo alcanzan.
+Las clases están relativamente balanceadas, lo que significa que un clasificador trivial que siempre prediga la clase mayoritaria acertaría el `r percent(max(dist_y$Proporcion), accuracy = 0.1)` de las veces: este valor (la tasa de no información) es la referencia mínima que deben superar los modelos.
+
+## Evolución temporal del acceso universal
+
+```{r Grafica 2}
+evolucion <- Base_datos %>%
+  group_by(Año, Region) %>%
+  summarise(Porcentaje = mean(Y) * 100, Paises = n(), .groups = "drop")
+
+evolucion_mundo <- Base_datos %>%
+  group_by(Año) %>%
+  summarise(Porcentaje = mean(Y) * 100, Paises = n(), .groups = "drop") %>%
+  mutate(Region = "Total mundial")
+
+colores_region <- c(
+  "África" = "#990000", "Asia" = "#FF3333", "Europa" = "#FFD100",
+  "Norteamérica" = "#CC0000", "Oceanía" = "#FF9999", "Sudamérica" = "#666666"
+)
+
+plot_ly() %>%
+  add_lines(
+    data = evolucion, x = ~Año, y = ~Porcentaje, color = ~Region, colors = colores_region,
+    line = list(width = 2.5),
+    text = ~paste0("<b>", Region, "</b><br>Año: ", Año, "<br>Países con acceso >= 95%: ",
+                   round(Porcentaje, 1), "%<br>Países observados: ", Paises),
+    hoverinfo = "text"
+  ) %>%
+  add_lines(
+    data = evolucion_mundo, x = ~Año, y = ~Porcentaje, name = "Total mundial",
+    line = list(color = "black", width = 4, dash = "dash"),
+    text = ~paste0("<b>Total mundial</b><br>Año: ", Año, "<br>Países con acceso >= 95%: ", round(Porcentaje, 1), "%"),
+    hoverinfo = "text"
+  ) %>%
+  estilo_plotly(
+    "Figura 2. Porcentaje de países con acceso >= 95% por región (2000-2022)",
+    "Año",
+    "% de países con acceso universal"
+  ) %>%
+  layout(yaxis = list(ticksuffix = "%", range = c(0, 105)))
+```
+
+```{r texto evolucion, include=FALSE}
+mundo_ini <- evolucion_mundo %>% filter(Año == min(Año)) %>% pull(Porcentaje)
+mundo_fin <- evolucion_mundo %>% filter(Año == max(Año)) %>% pull(Porcentaje)
+africa_ini <- evolucion %>% filter(Region == "África", Año == min(Año)) %>% pull(Porcentaje)
+africa_fin <- evolucion %>% filter(Region == "África", Año == max(Año)) %>% pull(Porcentaje)
+```
+
+La Figura 2 evidencia el progreso sostenido en la electrificación durante las últimas dos décadas: el porcentaje de países con acceso igual o superior al 95% pasó de `r round(mundo_ini, 1)`% en 2000 a `r round(mundo_fin, 1)`% en 2022.
+Sin embargo, el avance ha sido muy desigual entre regiones.
+Europa se mantiene por encima del 90% durante todo el periodo y alcanza el 100% al final, mientras que Sudamérica, Norteamérica (que incluye a México, Centroamérica y el Caribe) y Asia muestran los mayores avances, con aumentos de entre 25 y 45 puntos porcentuales.
+Oceanía tiene un avance intermedio, limitado por pequeños estados insulares del Pacífico con poblaciones dispersas.
+África es la región más rezagada: solo el `r round(africa_ini, 1)`% de sus países tenía acceso universal en 2000, y en 2022 la cifra apenas llega al `r round(africa_fin, 1)`%; los únicos países africanos que superan el umbral en 2022 son Argelia, Egipto, Marruecos y Túnez, en el norte del continente, y los estados insulares de Cabo Verde y Mauricio.
+
+## Relación entre el ingreso y el acceso a la electricidad
+
+```{r Grafica 3}
+Base_datos %>%
+  plot_ly(
+    x = ~PIB_pc,
+    y = ~Acceso,
+    color = ~Region,
+    colors = colores_region,
+    size = ~Urbano,
+    sizes = c(5, 25),
+    frame = ~Año,
+    ids = ~Pais,
+    type = "scatter",
+    mode = "markers",
+    marker = list(opacity = 0.75, line = list(color = "white", width = 0.5)),
+    text = ~paste0("<b>", Pais, "</b><br>PIB pc: ", dollar(PIB_pc, accuracy = 1),
+                   "<br>Acceso: ", round(Acceso, 1), "%<br>Población urbana: ", round(Urbano, 1), "%"),
+    hoverinfo = "text"
+  ) %>%
+  estilo_plotly(
+    "Figura 3. PIB per cápita vs. acceso a la electricidad (animación 2000-2022)",
+    "PIB per cápita (USD PPA, escala logarítmica)",
+    "Acceso a la electricidad (%)"
+  ) %>%
+  layout(
+    xaxis = list(type = "log"),
+    yaxis = list(range = c(0, 105), ticksuffix = "%"),
+    shapes = list(list(
+      type = "line", xref = "paper", x0 = 0, x1 = 1, y0 = 95, y1 = 95,
+      line = list(color = SC[["gold"]], dash = "dash", width = 2)
+    )),
+    legend = list(orientation = "v", x = 1.02, y = 1, xanchor = "left"),
+    margin = list(b = 160, r = 140)
+  ) %>%
+  animation_opts(frame = 600, transition = 300, redraw = FALSE) %>%
+  animation_slider(currentvalue = list(prefix = "Año: ", font = list(color = SC[["dark_red"]])))
+```
+
+La Figura 3 es un gráfico dinámico (presione *Play* o mueva el deslizador) que relaciona el PIB per cápita (en escala logarítmica) con el porcentaje de acceso a la electricidad; el tamaño de cada burbuja representa el porcentaje de población urbana y la línea amarilla discontinua marca el umbral del 95% que define la variable dependiente.
+Se aprecia una clara relación en forma de "S" (logística): por debajo de aproximadamente USD 5.000 per cápita el acceso es muy heterogéneo y en general bajo, mientras que a partir de unos USD 10.000-15.000 casi todos los países superan el umbral del 95%.
+Esta forma sigmoide es precisamente la que modela la regresión logística, lo cual anticipa un buen desempeño de este modelo.
+Con el paso de los años la nube de puntos se desplaza hacia arriba y a la derecha, reflejando el crecimiento económico y los avances en electrificación, aunque un grupo de países africanos permanece en la esquina inferior izquierda (bajo ingreso y baja cobertura).
+
+## Distribución de las variables cuantitativas según el acceso
+
+```{r tabla por clase}
+por_clase <- Base_datos %>%
+  select(Acceso_95, log_PIB, Urbano, log_Densidad, Agricultura, Fertilidad, Crec_poblacion) %>%
+  pivot_longer(-Acceso_95, names_to = "Variable", values_to = "valor") %>%
+  group_by(Variable) %>%
+  summarise(
+    `Media (No)` = mean(valor[Acceso_95 == "No"]),
+    `Media (Si)` = mean(valor[Acceso_95 == "Si"]),
+    `Mediana (No)` = median(valor[Acceso_95 == "No"]),
+    `Mediana (Si)` = median(valor[Acceso_95 == "Si"]),
+    `Valor p (Wilcoxon)` = wilcox.test(valor ~ Acceso_95)$p.value,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Variable = recode(
+      Variable,
+      log_PIB = "log(PIB per cápita)", Urbano = "Población urbana (%)",
+      log_Densidad = "log(Densidad)", Agricultura = "Agricultura (% PIB)",
+      Fertilidad = "Fecundidad", Crec_poblacion = "Crec. poblacional (%)"
+    ),
+    across(2:5, ~ round(., 2)),
+    `Valor p (Wilcoxon)` = if_else(`Valor p (Wilcoxon)` < 0.001, "< 0.001", sprintf("%.3f", `Valor p (Wilcoxon)`))
+  )
+
+tabla_estilo(
+  por_clase,
+  "Tabla 4. Comparación de las variables cuantitativas según el acceso a la electricidad",
+  nota = "Prueba de Wilcoxon-Mann-Whitney para diferencias en la distribución entre grupos. Elaboración propia con base en OWID y Banco Mundial.",
+  align = c("l", rep("r", 5))
+)
+```
+
+```{r Grafica 4, fig.width=10, fig.height=7}
+etiquetas_vars <- c(
+  log_PIB = "log(PIB per cápita)", Urbano = "Población urbana (%)",
+  log_Densidad = "log(Densidad)", Agricultura = "Agricultura (% PIB)",
+  Fertilidad = "Fecundidad (hijos/mujer)", Crec_poblacion = "Crec. poblacional (%)"
+)
+
+p_box <- Base_datos %>%
+  select(Pais, Año, Acceso_95, all_of(names(etiquetas_vars))) %>%
+  pivot_longer(all_of(names(etiquetas_vars)), names_to = "Variable", values_to = "Valor") %>%
+  mutate(Variable = factor(etiquetas_vars[Variable], levels = etiquetas_vars)) %>%
+  ggplot(aes(x = Acceso_95, y = Valor, fill = Acceso_95)) +
+  geom_boxplot(alpha = 0.85, outlier.alpha = 0.3, outlier.size = 0.8, color = SC[["dark_red"]]) +
+  facet_wrap(~Variable, scales = "free_y", ncol = 3) +
+  scale_fill_manual(values = c("No" = SC[["light_red"]], "Si" = SC[["primary_red"]]), name = "Acceso >= 95%") +
+  labs(
+    title = "Figura 4. Variables cuantitativas según el acceso a la electricidad",
+    x = "Acceso >= 95%",
+    y = NULL
+  ) +
+  TS() +
+  theme(legend.position = "none")
+
+ggplotly(p_box) %>%
+  layout(margin = list(t = 80)) %>%
+  config(displaylogo = FALSE)
+```
+
+La Tabla 4 y la Figura 4 permiten identificar con claridad cuáles variables separan a los dos grupos.
+Todas las diferencias son estadísticamente significativas según la prueba de Wilcoxon (p < 0,001), y los signos coinciden con lo esperado:
+
+-   **PIB per cápita:** es la variable con la separación más marcada; las cajas de ambos grupos apenas se traslapan, lo que confirma que el ingreso es el principal determinante del acceso universal.
+-   **Población urbana:** los países con acceso universal son, en promedio, mucho más urbanos.
+-   **Agricultura y fecundidad:** muestran el patrón inverso; los países sin acceso universal dependen mucho más de la agricultura y tienen tasas de fecundidad considerablemente más altas.
+-   **Crecimiento poblacional:** es mayor en los países sin acceso universal, lo que dificulta que la expansión de la red avance al ritmo del crecimiento de la población.
+-   **Densidad poblacional:** es la variable con menor capacidad de separación; las distribuciones de ambos grupos se traslapan considerablemente, por lo que su aporte individual es menor.
+
+```{r Grafica 5}
+p_dens <- Base_datos %>%
+  ggplot(aes(x = PIB_pc, fill = Acceso_95)) +
+  geom_density(alpha = 0.6, color = SC[["dark_red"]]) +
+  scale_x_log10(labels = dollar_format(accuracy = 1)) +
+  scale_fill_manual(values = c("No" = SC[["gold"]], "Si" = SC[["primary_red"]]), name = "Acceso >= 95%") +
+  labs(
+    title = "Figura 5. Densidad del PIB per cápita según el acceso",
+    x = "PIB per cápita (USD PPA, escala log)",
+    y = "Densidad"
+  ) +
+  TS()
+
+ggplotly(p_dens) %>%
+  layout(legend = list(orientation = "h", x = 0.5, y = -0.3, xanchor = "center"), margin = list(b = 120)) %>%
+  config(displaylogo = FALSE)
+```
+
+La Figura 5 muestra que las distribuciones del PIB per cápita de ambos grupos tienen formas aproximadamente normales en escala logarítmica, con modas claramente separadas.
+La zona de traslape (aproximadamente entre USD 5.000 y USD 20.000) es donde se concentrarán los errores de clasificación, ya que allí conviven países de ingreso medio con y sin acceso universal.
+
+## Análisis de las variables categóricas
+
+```{r tabla region}
+tabla_region <- Base_datos %>%
+  count(Region, Acceso_95) %>%
+  pivot_wider(names_from = Acceso_95, values_from = n, values_fill = 0) %>%
+  mutate(
+    Total = No + Si,
+    `% con acceso >= 95%` = round(100 * Si / Total, 1),
+    Paises = Base_datos %>% group_by(Region) %>% summarise(p = n_distinct(Codigo)) %>% pull(p)
+  ) %>%
+  select(Region, Paises, No, Si, Total, `% con acceso >= 95%`) %>%
+  arrange(desc(`% con acceso >= 95%`))
+
+chi_region <- chisq.test(table(Base_datos$Region, Base_datos$Acceso_95))
+chi_litoral <- chisq.test(table(Base_datos$Litoral, Base_datos$Acceso_95))
+
+tabla_estilo(
+  tabla_region,
+  "Tabla 5. Acceso a la electricidad según región",
+  nota = paste0("Prueba chi-cuadrado de independencia: X² = ", round(chi_region$statistic, 1),
+                ", gl = ", chi_region$parameter, ", p < 0.001. Las columnas No/Si cuentan observaciones país-año."),
+  col.names = c("Región", "Países", "No", "Si", "Total", "% con acceso >= 95%"),
+  align = c("l", rep("r", 5))
+)
+```
+
+```{r Grafica 6}
+cat_region <- Base_datos %>%
+  count(Region, Acceso_95) %>%
+  group_by(Region) %>%
+  mutate(Porcentaje = 100 * n / sum(n)) %>%
+  ungroup()
+
+plot_ly(
+  cat_region,
+  x = ~Region,
+  y = ~Porcentaje,
+  color = ~Acceso_95,
+  colors = c("No" = SC[["light_red"]], "Si" = SC[["primary_red"]]),
+  type = "bar",
+  text = ~paste0(round(Porcentaje, 1), "%"),
+  textposition = "inside",
+  hovertemplate = "%{x}<br>%{y:.1f}% de las observaciones<extra></extra>"
+) %>%
+  estilo_plotly(
+    "Figura 6. Composición del acceso a la electricidad por región",
+    "Región",
+    "% de observaciones país-año"
+  ) %>%
+  layout(barmode = "stack", yaxis = list(ticksuffix = "%"))
+```
+
+La región es una variable con una fuerte asociación con el acceso universal (prueba chi-cuadrado, p < 0,001).
+Europa presenta acceso universal en casi la totalidad de sus observaciones (las excepciones son Bielorrusia, Bulgaria y Rumania en los primeros años de la década de 2000, con coberturas ligeramente inferiores al 95%).
+En el extremo opuesto, África apenas registra acceso universal en una de cada diez observaciones.
+Asia y Sudamérica superan el 65%, mientras que Norteamérica (que incluye a México, Centroamérica y el Caribe, con casos como Haití, Honduras o Nicaragua) y Oceanía (con Papúa Nueva Guinea, Islas Salomón o Vanuatu) se ubican en posiciones intermedias.
+
+```{r Grafica 7}
+tabla_litoral <- Base_datos %>%
+  count(Litoral, Acceso_95) %>%
+  group_by(Litoral) %>%
+  mutate(Porcentaje = 100 * n / sum(n), Paises = n_distinct(Base_datos$Codigo[Base_datos$Litoral == first(Litoral)])) %>%
+  ungroup()
+
+plot_ly(
+  tabla_litoral,
+  x = ~Litoral,
+  y = ~Porcentaje,
+  color = ~Acceso_95,
+  colors = c("No" = SC[["gold"]], "Si" = SC[["primary_red"]]),
+  type = "bar",
+  text = ~paste0(round(Porcentaje, 1), "% (n = ", n, ")"),
+  textposition = "auto",
+  hovertemplate = "%{x}<br>%{y:.1f}%<extra></extra>"
+) %>%
+  estilo_plotly(
+    "Figura 7. Acceso a la electricidad según la condición de litoral",
+    "",
+    "% de observaciones país-año"
+  ) %>%
+  layout(barmode = "group", yaxis = list(ticksuffix = "%", range = c(0, 100)))
+```
+
+```{r texto litoral, include=FALSE}
+lit_con <- tabla_litoral %>% filter(Litoral == "Con litoral", Acceso_95 == "Si") %>% pull(Porcentaje)
+lit_sin <- tabla_litoral %>% filter(Litoral == "Sin litoral", Acceso_95 == "Si") %>% pull(Porcentaje)
+```
+
+La Figura 7 indica que el `r round(lit_con, 1)`% de las observaciones de países con litoral tienen acceso universal, frente al `r round(lit_sin, 1)`% de los países sin salida al mar.
+La diferencia es estadísticamente significativa (X² = `r round(chi_litoral$statistic, 1)`, p `r ifelse(chi_litoral$p.value < 0.001, "< 0,001", paste("=", round(chi_litoral$p.value, 3)))`), aunque es mucho menos pronunciada que la observada entre regiones.
+Debe tenerse en cuenta que el grupo sin litoral es muy heterogéneo: incluye países europeos de alto ingreso (Suiza, Austria, Hungría), las antiguas repúblicas soviéticas de Asia Central y el Cáucaso (Kazajistán, Uzbekistán, Kirguistán, Tayikistán, Turkmenistán, Armenia, Azerbaiyán), que tienen coberturas cercanas al 100%, y muchos de los países más pobres de África (Chad, Níger, Burundi, Malaui), con coberturas inferiores al 20%.
+Por ello, la menor cobertura de los países sin litoral podría reflejar en realidad su menor ingreso y su ubicación geográfica, y el efecto de esta variable podría cambiar una vez se controle por esas características en el modelo Logit.
+
+## Correlación entre las variables numéricas
+
+```{r correlacion, fig.width=9, fig.height=7}
+matriz_cor <- Base_datos %>%
+  select(Y, log_PIB, Urbano, log_Densidad, Agricultura, Fertilidad, Crec_poblacion) %>%
+  rename(
+    "Acceso >= 95%" = Y, "log(PIB pc)" = log_PIB, "Urbano" = Urbano,
+    "log(Densidad)" = log_Densidad, "Agricultura" = Agricultura,
+    "Fecundidad" = Fertilidad, "Crec. poblacional" = Crec_poblacion
+  ) %>%
+  cor()
+
+p_cor <- ggcorrplot(
+  matriz_cor,
+  method = "square",
+  type = "lower",
+  lab = TRUE,
+  lab_size = 3.5,
+  colors = c(SC[["gold"]], "white", SC[["primary_red"]]),
+  outline.color = "white"
+) +
+  labs(title = "Figura 8. Matriz de correlaciones") +
+  TS() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title = element_blank())
+
+ggplotly(p_cor) %>% config(displaylogo = FALSE)
+```
+
+```{r texto correlacion, include=FALSE}
+cor_y <- sort(matriz_cor["Acceso >= 95%", -1])
+cor_pib_fec <- matriz_cor["log(PIB pc)", "Fecundidad"]
+cor_pib_agr <- matriz_cor["log(PIB pc)", "Agricultura"]
+```
+
+La matriz de correlaciones (Figura 8) confirma los patrones descriptivos.
+La variable dependiente tiene las correlaciones positivas más altas con el logaritmo del PIB per cápita (`r round(matriz_cor["Acceso >= 95%", "log(PIB pc)"], 2)`) y con la población urbana (`r round(matriz_cor["Acceso >= 95%", "Urbano"], 2)`), y las negativas más fuertes con la fecundidad (`r round(matriz_cor["Acceso >= 95%", "Fecundidad"], 2)`) y la participación de la agricultura (`r round(matriz_cor["Acceso >= 95%", "Agricultura"], 2)`).
+La densidad poblacional tiene una correlación muy baja con el acceso (`r round(matriz_cor["Acceso >= 95%", "log(Densidad)"], 2)`).
+
+Por otro lado, se observan correlaciones elevadas entre algunos predictores, como entre el PIB per cápita y la fecundidad (`r round(cor_pib_fec, 2)`) o entre el PIB per cápita y la agricultura (`r round(cor_pib_agr, 2)`).
+Esto es esperable, porque todas estas variables son manifestaciones del nivel de desarrollo de un país, pero implica cierta multicolinealidad que puede hacer que algunos coeficientes del modelo Logit resulten menos precisos o incluso cambien de signo respecto a su correlación simple.
+Por esta razón, en la sección del modelo Logit se calculan los factores de inflación de varianza (VIF).
+
+# Modelos de clasificación
+
+La clasificación es un enfoque fundamental dentro del aprendizaje supervisado cuyo objetivo es asignar observaciones a categorías predefinidas a partir de un conjunto de características.
+Los modelos aprenden de datos etiquetados (en este caso, país-años cuya situación de acceso es conocida) para luego predecir la clase de nuevas observaciones.
+A continuación, se detalla la división de los datos y la implementación de cada modelo.
+
+## División de los datos
+
+```{r particion}
+set.seed(0408)
+
+paises <- unique(Base_datos$Codigo)
+paises_train <- sample(paises, size = round(0.75 * length(paises)))
+
+train <- Base_datos %>% filter(Codigo %in% paises_train)
+test  <- Base_datos %>% filter(!Codigo %in% paises_train)
+
+particion <- bind_rows(
+  train %>% mutate(Conjunto = "Entrenamiento"),
+  test %>% mutate(Conjunto = "Prueba")
+) %>%
+  group_by(Conjunto) %>%
+  summarise(
+    Países = n_distinct(Codigo),
+    Observaciones = n(),
+    `No (acceso < 95%)` = sum(Acceso_95 == "No"),
+    `Si (acceso >= 95%)` = sum(Acceso_95 == "Si"),
+    `% Si` = round(100 * mean(Y), 1),
+    .groups = "drop"
+  )
+
+tabla_estilo(
+  particion,
+  "Tabla 6. Partición de los datos en entrenamiento y prueba (por países)",
+  align = c("l", rep("r", 5))
+)
+```
+
+Con una semilla fija (`set.seed(0408)`), se asignaron `r particion$Países[1]` países (`r num(particion$Observaciones[1])` observaciones) al conjunto de entrenamiento y `r particion$Países[2]` países (`r num(particion$Observaciones[2])` observaciones) al conjunto de prueba.
+La proporción de observaciones con acceso universal es similar en ambos conjuntos (`r particion[["% Si"]][1]`% y `r particion[["% Si"]][2]`%), lo que garantiza que la evaluación sea representativa.
+Como la partición es por países, todos los años de un mismo país quedan en un único conjunto, de modo que el desempeño en la prueba mide la capacidad del modelo para clasificar **países nuevos**.
+
+## Modelo KNN
+
+El modelo K-Nearest Neighbors (KNN) es un algoritmo de aprendizaje supervisado no paramétrico que predice la clase de una nueva observación según la clase mayoritaria de sus k vecinos más cercanos en el espacio de características.
+Es un método "perezoso": no estima parámetros durante el entrenamiento, sino que almacena los datos y calcula las distancias en el momento de la predicción.
+Su principal hiperparámetro es k: valores pequeños producen fronteras de decisión muy flexibles (riesgo de sobreajuste) y valores grandes producen fronteras más suaves (riesgo de subajuste).
+
+### Modelo KNN (class)
+
+En esta primera implementación se utiliza la función `knn()` del paquete class, que solo admite variables numéricas, por lo que se emplean las seis variables cuantitativas (con el PIB y la densidad en logaritmo) estandarizadas con la media y la desviación estándar del conjunto de entrenamiento.
+
+```{r class knn}
+vars_input <- c("log_PIB", "Urbano", "log_Densidad", "Agricultura", "Fertilidad", "Crec_poblacion")
+
+train_input <- train[, vars_input]
+test_input  <- test[, vars_input]
+train_output <- train$Acceso_95
+test_output  <- test$Acceso_95
+
+scaler <- preProcess(train_input, method = c("center", "scale"))
+train_input_scaled <- predict(scaler, train_input)
+test_input_scaled  <- predict(scaler, test_input)
+
+k_vals <- 1:100
+resultado <- data.frame(k = k_vals, precision = NA_real_)
+
+set.seed(0408)
+for (n in k_vals) {
+  pred_temp <- knn(
+    train = train_input_scaled,
+    test = test_input_scaled,
+    cl = train_output,
+    k = n
+  )
+  resultado$precision[n] <- mean(pred_temp == test_output)
+}
+
+k_optimo <- resultado$k[which.max(resultado$precision)]
+prec_opt <- max(resultado$precision)
+
+cat("K óptimo:", k_optimo, "| Exactitud óptima:", round(prec_opt, 4), "\n")
+
+set.seed(0408)
+pred_knn <- knn(
+  train = train_input_scaled,
+  test = test_input_scaled,
+  cl = train_output,
+  k = k_optimo,
+  prob = TRUE
+)
+
+# Probabilidad estimada de la clase "Si" (proporción de vecinos con acceso universal)
+prob_voto <- attr(pred_knn, "prob")
+prob_knn_class <- ifelse(pred_knn == "Si", prob_voto, 1 - prob_voto)
+```
+
+```{r figura 9 knn objetivo}
+plot_ly(resultado, x = ~k) %>%
+  add_lines(
+    y = ~precision,
+    line = list(color = SC[["primary_red"]], width = 3, shape = "spline"),
+    name = "Exactitud",
+    hovertemplate = "k = %{x}<br>Exactitud = %{y:.3f}<extra></extra>"
+  ) %>%
+  add_markers(
+    y = ~precision,
+    marker = list(size = 6, color = SC[["accent_red"]], line = list(color = "white", width = 1)),
+    showlegend = FALSE,
+    hovertemplate = "k = %{x}<br>Exactitud = %{y:.3f}<extra></extra>"
+  ) %>%
+  add_segments(
+    x = k_optimo, xend = k_optimo,
+    y = min(resultado$precision), yend = max(resultado$precision),
+    line = list(color = SC[["gold"]], width = 2.5, dash = "dash"),
+    name = paste("k óptimo =", k_optimo)
+  ) %>%
+  estilo_plotly(
+    "Figura 9. Exactitud del modelo KNN (class) según el número de vecinos (k)",
+    "Número de vecinos (k)",
+    "Exactitud en el conjunto de prueba"
+  ) %>%
+  layout(yaxis = list(tickformat = ".1%"))
+```
+
+La Figura 9 muestra la exactitud obtenida para cada valor de k.
+El valor que maximiza la exactitud es k = `r k_optimo`, con un `r percent(prec_opt, accuracy = 0.1)` de aciertos en el conjunto de prueba.
+La exactitud pasa de `r percent(resultado$precision[1], accuracy = 0.1)` con k = 1 (un modelo que copia la clase del vecino más parecido y por tanto sobreajusta) a valores entre 86% y 88% a partir de k ≈ 30, donde la curva se vuelve prácticamente plana.
+Esto indica que la estructura de los datos es bastante clara y que, superado cierto número de vecinos, el modelo no es muy sensible a la elección del hiperparámetro; el hecho de que el máximo se ubique cerca del extremo superior del rango evaluado sugiere que una frontera de decisión suave es la más adecuada para este problema.
+Cabe advertir que, al elegir k directamente con el conjunto de prueba, esta exactitud es algo optimista; por eso en la siguiente sección se selecciona k mediante validación cruzada.
+
+```{r confusion class}
+cm_class <- confusionMatrix(pred_knn, test_output, positive = "Si")
+
+tabla_confusion(cm_class, "Tabla 7. Matriz de confusión - Modelo KNN (class)")
+
+tabla_metricas(cm_class, "Tabla 8. Métricas de evaluación del modelo KNN (class)")
+```
+
+```{r texto class, include=FALSE}
+fmt <- function(x) percent(as.numeric(x), accuracy = 0.1, decimal.mark = ",")
+```
+
+El modelo KNN (class) alcanza una exactitud de `r fmt(cm_class$overall["Accuracy"])`, muy superior a la tasa de no información (`r fmt(cm_class$overall["AccuracyNull"])`), y la diferencia es estadísticamente significativa (p `r ifelse(cm_class$overall["AccuracyPValue"] < 0.001, "< 0,001", round(cm_class$overall["AccuracyPValue"], 3))`).
+El índice Kappa de `r round(cm_class$overall["Kappa"], 3)` indica un acuerdo `r ifelse(cm_class$overall["Kappa"] > 0.8, "casi perfecto", ifelse(cm_class$overall["Kappa"] > 0.6, "sustancial", "moderado"))` entre las predicciones y los valores reales, una vez descontado el acuerdo atribuible al azar.
+
+La sensibilidad (`r fmt(cm_class$byClass["Sensitivity"])`) indica la proporción de observaciones con acceso universal que el modelo identifica correctamente, mientras que la especificidad (`r fmt(cm_class$byClass["Specificity"])`) mide la proporción de observaciones sin acceso universal correctamente clasificadas.
+Cuando el modelo predice que un país tiene acceso universal acierta en el `r fmt(cm_class$byClass["Pos Pred Value"])` de los casos, y cuando predice que no lo tiene acierta en el `r fmt(cm_class$byClass["Neg Pred Value"])`.
+
+### Modelo KNN (caret)
+
+El ajuste del modelo KNN con el paquete caret permite incluir tanto variables numéricas como categóricas (que se transforman automáticamente en variables dummy) y automatizar la validación cruzada y la selección de k.
+Para respetar la estructura de panel de los datos, la validación cruzada de 5 pliegues se construyó **agrupando por país** con la función `groupKFold()`: en cada iteración, los países de validación no aparecen en el entrenamiento.
+Se exploraron los valores impares de k entre 1 y 101 y se seleccionó el que maximiza el AUC promedio de validación.
+
+```{r caret}
+formula_modelo <- Acceso_95 ~ log_PIB + Urbano + log_Densidad + Agricultura +
+  Fertilidad + Crec_poblacion + Region + Litoral
+
+set.seed(0408)
+folds <- groupKFold(train$Codigo, k = 5)
+
+ctrl_knn <- trainControl(
+  method = "cv",
+  index = folds,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+set.seed(0408)
+modelo_knn <- train(
+  formula_modelo,
+  data = train,
+  method = "knn",
+  trControl = ctrl_knn,
+  preProcess = c("center", "scale"),
+  tuneGrid = data.frame(k = seq(1, 101, by = 2)),
+  metric = "ROC"
+)
+
+pred_clase_knn <- predict(modelo_knn, newdata = test)
+pred_prob_knn  <- predict(modelo_knn, newdata = test, type = "prob")
+```
+
+```{r figura 10}
+plot_ly(modelo_knn$results, x = ~k) %>%
+  add_ribbons(
+    ymin = ~ROC - ROCSD, ymax = ~ROC + ROCSD,
+    fillcolor = "rgba(255,51,51,0.15)", line = list(color = "transparent"),
+    name = "± 1 desv. estándar", hoverinfo = "none"
+  ) %>%
+  add_lines(
+    y = ~ROC,
+    line = list(color = SC[["primary_red"]], width = 3, shape = "spline"),
+    name = "AUC (validación cruzada)",
+    hovertemplate = "k = %{x}<br>AUC = %{y:.4f}<extra></extra>"
+  ) %>%
+  add_markers(
+    x = modelo_knn$bestTune$k,
+    y = max(modelo_knn$results$ROC),
+    marker = list(size = 14, color = SC[["gold"]], line = list(color = SC[["dark_red"]], width = 2)),
+    name = paste("k óptimo =", modelo_knn$bestTune$k),
+    hovertemplate = "k óptimo = %{x}<br>AUC = %{y:.4f}<extra></extra>"
+  ) %>%
+  estilo_plotly(
+    "Figura 10. AUC del modelo KNN (caret) según k - validación cruzada por países",
+    "Número de vecinos (k)",
+    "AUC promedio (5 pliegues)"
+  )
+```
+
+El valor óptimo encontrado fue k = `r modelo_knn$bestTune$k`, con un AUC promedio en validación cruzada de `r round(max(modelo_knn$results$ROC), 4)`.
+La Figura 10 muestra que el AUC crece rápidamente al pasar de k = 1 a valores de k moderados (cuando el modelo deja de "memorizar" a los vecinos individuales) y luego se estabiliza.
+La banda sombreada representa la variabilidad entre pliegues, que refleja el hecho de que el desempeño depende de cuáles países caen en cada pliegue.
+
+```{r confusion caret}
+cm_caret <- confusionMatrix(pred_clase_knn, test$Acceso_95, positive = "Si")
+
+tabla_confusion(cm_caret, "Tabla 9. Matriz de confusión - Modelo KNN (caret)")
+
+tabla_metricas(cm_caret, "Tabla 10. Métricas de evaluación del modelo KNN (caret)")
+```
+
+En el conjunto de prueba, el modelo KNN con caret alcanza una exactitud de `r fmt(cm_caret$overall["Accuracy"])` (IC 95%: `r fmt(cm_caret$overall["AccuracyLower"])` - `r fmt(cm_caret$overall["AccuracyUpper"])`), una sensibilidad de `r fmt(cm_caret$byClass["Sensitivity"])`, una especificidad de `r fmt(cm_caret$byClass["Specificity"])` y un Kappa de `r round(cm_caret$overall["Kappa"], 3)`.
+Frente al modelo con class, este modelo incorpora la información de la región y del litoral y selecciona k sin utilizar el conjunto de prueba, por lo que su desempeño es una estimación más honesta de la capacidad de generalización del algoritmo.
+
+## Modelo Logit
+
+La regresión logística es un método de clasificación paramétrico que estima la probabilidad de que una observación pertenezca a la clase positiva en función de las variables explicativas.
+A diferencia de KNN, construye un modelo matemático explícito:
+
+$$
+P(\text{Acceso}_{95} = 1 \mid \mathbf{X}) = \frac{1}{1 + e^{-z}}
+$$
+
+donde:
+
+$$
+\begin{aligned}
+z = \; & \beta_0 + \beta_1 \ln(\text{PIB pc}) + \beta_2 \, \text{Urbano} + \beta_3 \ln(\text{Densidad}) + \beta_4 \, \text{Agricultura} + \beta_5 \, \text{Fecundidad} \\
+& + \beta_6 \, \text{Crec. poblacional} + \sum_{r} \gamma_r \, \text{Región}_r + \delta \, \text{Sin litoral}
+\end{aligned}
+$$
+
+El modelo se entrenó con la función `glm()` (familia binomial) sobre el conjunto de entrenamiento, usando exactamente las mismas variables del modelo KNN (caret).
+
+```{r Logit}
+fit_logit <- glm(
+  Y ~ log_PIB + Urbano + log_Densidad + Agricultura + Fertilidad + Crec_poblacion + Region + Litoral,
+  data = train,
+  family = binomial()
+)
+
+# Umbral óptimo (índice de Youden) calculado en el conjunto de ENTRENAMIENTO
+p_train <- predict(fit_logit, type = "response")
+roc_train <- roc(response = train$Acceso_95, predictor = p_train, levels = c("No", "Si"), direction = "<")
+umbral <- as.numeric(coords(roc_train, x = "best", best.method = "youden", ret = "threshold", transpose = FALSE)$threshold[1])
+
+# Predicciones en el conjunto de prueba
+p_hat <- predict(fit_logit, newdata = test, type = "response")
+roc_logit <- roc(response = test$Acceso_95, predictor = p_hat, levels = c("No", "Si"), direction = "<")
+
+pred_clase_logit <- factor(if_else(p_hat >= umbral, "Si", "No"), levels = c("No", "Si"))
+
+# Indicadores de ajuste global
+pseudo_r2 <- 1 - fit_logit$deviance / fit_logit$null.deviance
+lr_stat <- fit_logit$null.deviance - fit_logit$deviance
+lr_gl <- fit_logit$df.null - fit_logit$df.residual
+lr_p <- pchisq(lr_stat, lr_gl, lower.tail = FALSE)
+```
+
+```{r Tabla_mod}
+ic_or <- exp(confint.default(fit_logit))
+
+nombres_coef <- c(
+  "(Intercept)" = "Intercepto",
+  "log_PIB" = "log(PIB per cápita)",
+  "Urbano" = "Población urbana (%)",
+  "log_Densidad" = "log(Densidad)",
+  "Agricultura" = "Agricultura (% PIB)",
+  "Fertilidad" = "Fecundidad",
+  "Crec_poblacion" = "Crec. poblacional (%)",
+  "RegionAsia" = "Región: Asia",
+  "RegionEuropa" = "Región: Europa",
+  "RegionNorteamérica" = "Región: Norteamérica",
+  "RegionOceanía" = "Región: Oceanía",
+  "RegionSudamérica" = "Región: Sudamérica",
+  "LitoralSin litoral" = "Sin litoral"
+)
+
+tabla_logit_final <- tidy(fit_logit) %>%
+  mutate(
+    Variable = nombres_coef[term],
+    OR = exp(estimate),
+    IC_inf = ic_or[term, 1],
+    IC_sup = ic_or[term, 2],
+    Significancia = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      p.value < 0.1   ~ ".",
+      TRUE ~ ""
+    ),
+    p_txt = if_else(p.value < 0.001, "< 0.001", sprintf("%.4f", p.value))
+  )
+
+tabla_logit_final %>%
+  transmute(
+    Variable,
+    Coeficiente = round(estimate, 4),
+    `Error Estándar` = round(std.error, 4),
+    `Estadístico z` = round(statistic, 3),
+    `Valor p` = p_txt,
+    Signif. = Significancia,
+    `OR (e^β)` = round(OR, 3),
+    `IC 95% OR` = paste0("[", round(IC_inf, 3), " ; ", round(IC_sup, 3), "]")
+  ) %>%
+  kbl(
+    caption = "Tabla 11. Resultados del modelo de regresión logística (Logit)",
+    align = c("l", "r", "r", "r", "r", "c", "r", "c")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 13,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#ff0000", color = "white", bold = TRUE) %>%
+  row_spec(which(tabla_logit_final$p.value < 0.05), background = "#f2d7d5") %>%
+  column_spec(1, bold = TRUE, width = "4cm") %>%
+  footnote(
+    general = paste0(
+      "Variable dependiente: Acceso >= 95% (1 = Si). Categorías base: África y Con litoral. ",
+      "N = ", nobs(fit_logit), ". Deviance nula = ", round(fit_logit$null.deviance, 1),
+      "; Deviance residual = ", round(fit_logit$deviance, 1),
+      "; AIC = ", round(AIC(fit_logit), 1),
+      "; Pseudo R² de McFadden = ", round(pseudo_r2, 3),
+      ". Significancia: *** p<0.001, ** p<0.01, * p<0.05, . p<0.1"
+    ),
+    general_title = "Nota: ",
+    footnote_as_chunk = TRUE
+  )
+```
+
+```{r texto logit, include=FALSE}
+coef_l <- coef(fit_logit)
+or_l <- exp(coef_l)
+p_l <- summary(fit_logit)$coefficients[, 4]
+sig <- function(v) ifelse(p_l[v] < 0.05, "estadísticamente significativo al 5%", "no significativo al 5%")
+```
+
+**Ajuste global del modelo.** La prueba de razón de verosimilitud compara el modelo estimado con un modelo que solo tiene intercepto: el estadístico es `r round(lr_stat, 1)` con `r lr_gl` grados de libertad (p `r ifelse(lr_p < 0.001, "< 0,001", round(lr_p, 3))`), por lo que se rechaza la hipótesis de que todos los coeficientes son cero; en conjunto, las variables explicativas aportan información relevante para explicar el acceso universal.
+El pseudo R² de McFadden es `r round(pseudo_r2, 3)`; en la literatura se considera que valores entre 0,2 y 0,4 ya representan un ajuste muy bueno para este indicador (McFadden, 1979), por lo que el modelo tiene un poder explicativo alto.
+
+**Interpretación de los coeficientes.** Los coeficientes representan el cambio en el logaritmo de los odds (razón de probabilidades) de tener acceso universal ante un cambio de una unidad en la variable, manteniendo constantes las demás.
+Su exponencial, el *odds ratio* (OR), indica cuántas veces se multiplican los odds: un OR mayor que 1 aumenta la probabilidad de acceso universal y un OR menor que 1 la disminuye.
+
+-   **PIB per cápita:** el coeficiente es `r round(coef_l["log_PIB"], 3)` (`r sig("log_PIB")`). Como la variable está en logaritmo, un aumento del 10% en el PIB per cápita multiplica los odds de acceso universal por `r round(1.1^coef_l["log_PIB"], 3)`, y duplicar el ingreso los multiplica por `r round(2^coef_l["log_PIB"], 2)`.
+-   **Población urbana:** cada punto porcentual adicional de urbanización multiplica los odds por `r round(or_l["Urbano"], 3)` (`r sig("Urbano")`).
+-   **Densidad poblacional:** un aumento del 10% en la densidad multiplica los odds por `r round(1.1^coef_l["log_Densidad"], 3)` (`r sig("log_Densidad")`).
+-   **Agricultura:** cada punto porcentual adicional de participación de la agricultura en el PIB multiplica los odds por `r round(or_l["Agricultura"], 3)` (`r sig("Agricultura")`).
+-   **Fecundidad:** cada hijo adicional por mujer multiplica los odds por `r round(or_l["Fertilidad"], 3)` (`r sig("Fertilidad")`).
+-   **Crecimiento poblacional:** cada punto porcentual adicional de crecimiento anual de la población multiplica los odds por `r round(or_l["Crec_poblacion"], 3)` (`r sig("Crec_poblacion")`).
+-   **Región:** frente a África (categoría base), los odds de acceso universal se multiplican por `r round(or_l["RegionAsia"], 2)` en Asia, `r round(or_l["RegionEuropa"], 2)` en Europa, `r round(or_l["RegionNorteamérica"], 2)` en Norteamérica, `r round(or_l["RegionOceanía"], 2)` en Oceanía y `r round(or_l["RegionSudamérica"], 2)` en Sudamérica, manteniendo constantes las demás características.
+-   **Sin litoral:** frente a los países con salida al mar, los odds se multiplican por `r round(or_l["LitoralSin litoral"], 3)` (`r sig("LitoralSin litoral")`).
+
+```{r forest plot}
+p_forest <- tabla_logit_final %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    Variable = factor(Variable, levels = rev(Variable)),
+    Efecto = if_else(OR > 1, "Aumenta la probabilidad", "Disminuye la probabilidad")
+  ) %>%
+  ggplot(aes(x = OR, y = Variable, color = Efecto,
+             text = paste0(Variable, "<br>OR = ", round(OR, 3),
+                           "<br>IC 95%: [", round(IC_inf, 3), " ; ", round(IC_sup, 3), "]"))) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_errorbarh(aes(xmin = IC_inf, xmax = IC_sup), height = 0.25, linewidth = 0.8) +
+  geom_point(size = 3) +
+  scale_x_log10() +
+  scale_color_manual(values = c("Aumenta la probabilidad" = SC[["primary_red"]], "Disminuye la probabilidad" = SC[["gold"]])) +
+  labs(
+    title = "Figura 11. Odds ratios del modelo Logit (IC 95%)",
+    x = "Odds ratio (escala logarítmica)",
+    y = NULL,
+    color = NULL
+  ) +
+  TS()
+
+ggplotly(p_forest, tooltip = "text") %>%
+  layout(legend = list(orientation = "h", x = 0.5, y = -0.3, xanchor = "center"), margin = list(b = 120)) %>%
+  config(displaylogo = FALSE)
+```
+
+**Resultados que difieren de lo esperado.** Al controlar simultáneamente por todas las variables aparecen tres resultados que no coinciden con el análisis descriptivo y que merecen discusión:
+
+1.  **Agricultura y crecimiento poblacional dejan de ser significativos.** En el análisis bivariado ambas variables estaban fuertemente asociadas con la falta de acceso, pero esa información ya está contenida en el PIB per cápita y en la fecundidad (correlaciones de `r round(cor_pib_agr, 2)` y `r round(matriz_cor["Fecundidad", "Crec. poblacional"], 2)`, respectivamente). Una vez se conoce el ingreso y la fecundidad de un país, saber cuánto pesa la agricultura o qué tan rápido crece su población no aporta información adicional relevante.
+2.  **No tener litoral aumenta la probabilidad de acceso universal** (OR = `r round(or_l["LitoralSin litoral"], 2)`), justo lo contrario de lo observado en la Figura 7. Esto ocurre porque la diferencia descriptiva se debía a que muchos países sin litoral son africanos y de bajo ingreso; al comparar países con el mismo ingreso, urbanización y región, los países sin salida al mar tienen más acceso. El resultado está impulsado por las antiguas repúblicas soviéticas de Asia Central y el Cáucaso, que heredaron redes eléctricas extensas de la electrificación soviética y tienen coberturas cercanas al 100% a pesar de ingresos medios o bajos (por ejemplo, Tayikistán o Kirguistán). Es un ejemplo de cómo una variable puede cambiar de signo al controlar por factores de confusión.
+3.  **Norteamérica tiene un coeficiente negativo frente a África** (OR = `r round(or_l["RegionNorteamérica"], 2)`). Esto no significa que la región tenga menos acceso que África (descriptivamente tiene mucho más), sino que, **para un mismo nivel de ingreso, urbanización y fecundidad**, los países de Centroamérica y el Caribe (Haití, Honduras, Nicaragua, Guatemala, Panamá, Belice) tienen menos acceso del que el modelo esperaría. Algo similar explica por qué el coeficiente de Europa es menor que el de Asia u Oceanía: como los países europeos ya tienen ingresos altos, gran parte de su ventaja queda capturada por el PIB per cápita.
+
+La Figura 11 resume visualmente los odds ratios y sus intervalos de confianza al 95%: las variables cuyo intervalo no cruza la línea vertical (OR = 1) tienen un efecto estadísticamente significativo.
+
+**Multicolinealidad.** Dado que varias de las variables explicativas están correlacionadas entre sí, se calcularon los factores de inflación de varianza (VIF) para las variables numéricas.
+
+```{r vif}
+vif_manual <- sapply(vars_input, function(v) {
+  otras <- setdiff(vars_input, v)
+  r2 <- summary(lm(reformulate(otras, response = v), data = train))$r.squared
+  1 / (1 - r2)
+})
+
+data.frame(
+  Variable = etiquetas_vars[vars_input],
+  VIF = round(vif_manual, 2),
+  Diagnóstico = case_when(
+    vif_manual < 5 ~ "Sin problema",
+    vif_manual < 10 ~ "Multicolinealidad moderada",
+    TRUE ~ "Multicolinealidad alta"
+  ),
+  row.names = NULL
+) %>%
+  tabla_estilo(
+    "Tabla 12. Factores de inflación de varianza (VIF) de las variables numéricas",
+    nota = "VIF = 1 / (1 - R²), donde R² proviene de regresar cada variable sobre las demás. Valores mayores a 10 indican multicolinealidad alta.",
+    col.names = c("Variable", "VIF", "Diagnóstico"),
+    align = c("l", "r", "l")
+  )
+```
+
+Los VIF de la Tabla 12 son todos `r ifelse(max(vif_manual) < 5, "inferiores a 5", ifelse(max(vif_manual) < 10, "inferiores a 10", "en algunos casos superiores a 10"))` (el máximo es `r round(max(vif_manual), 2)`), lo que indica que la multicolinealidad `r ifelse(max(vif_manual) < 10, "no es severa y no compromete la estabilidad de las estimaciones", "es alta y debe tenerse en cuenta al interpretar los coeficientes individuales")`.
+
+**Umbral de clasificación.** En la regresión logística, el umbral de corte es el valor de probabilidad a partir del cual una observación se clasifica como "Si".
+El valor por defecto de 0,5 no siempre es el más adecuado, por lo que se determinó objetivamente con el índice de Youden sobre la curva ROC del conjunto de entrenamiento, que maximiza la suma de sensibilidad y especificidad.
+
+```{r ROC LOGIT}
+roc_data_logit <- data.frame(
+  FalsosPositivos = 1 - roc_logit$specificities,
+  Sensibilidad = roc_logit$sensitivities
+) %>%
+  arrange(FalsosPositivos, Sensibilidad)
+
+auc_logit <- round(as.numeric(auc(roc_logit)), 4)
+
+punto_optimo_idx <- which.min(abs(roc_logit$thresholds - umbral))
+punto_optimo_x <- 1 - roc_logit$specificities[punto_optimo_idx]
+punto_optimo_y <- roc_logit$sensitivities[punto_optimo_idx]
+
+plot_ly(roc_data_logit, type = "scatter", mode = "lines") %>%
+  add_trace(
+    x = ~FalsosPositivos, y = ~Sensibilidad,
+    fill = "tozeroy", fillcolor = "rgba(250,219,216,0.6)",
+    line = list(color = "#c0392b", width = 3),
+    name = "Curva ROC",
+    hoverinfo = "text",
+    text = ~paste("1-Especificidad:", round(FalsosPositivos, 3), "<br>Sensibilidad:", round(Sensibilidad, 3))
+  ) %>%
+  add_trace(
+    x = c(0, 1), y = c(0, 1), type = "scatter", mode = "lines",
+    line = list(color = "grey60", dash = "dash", width = 1.5),
+    name = "Clasificador aleatorio", hoverinfo = "none"
+  ) %>%
+  add_trace(
+    x = punto_optimo_x, y = punto_optimo_y, type = "scatter", mode = "markers",
+    marker = list(color = "#922b21", size = 12, line = list(color = "white", width = 2)),
+    name = "Umbral óptimo (Youden)",
+    hoverinfo = "text",
+    text = paste("Umbral:", round(umbral, 3), "<br>1-Especificidad:", round(punto_optimo_x, 3),
+                 "<br>Sensibilidad:", round(punto_optimo_y, 3))
+  ) %>%
+  estilo_plotly(
+    "Figura 12. Curva ROC del modelo Logit (conjunto de prueba)",
+    "1 - Especificidad (tasa de falsos positivos)",
+    "Sensibilidad (tasa de verdaderos positivos)"
+  ) %>%
+  layout(
+    xaxis = list(range = c(0, 1)),
+    yaxis = list(range = c(0, 1.02)),
+    annotations = list(
+      list(x = 0.65, y = 0.3, text = paste("<b>AUC =", auc_logit, "</b>"), showarrow = FALSE,
+           font = list(size = 16, color = "#922b21"), bgcolor = "rgba(255,255,255,0.8)",
+           bordercolor = "#c0392b", borderwidth = 1, borderpad = 4),
+      list(x = 0.65, y = 0.2, text = paste("<b>Umbral óptimo =", round(umbral, 3), "</b>"), showarrow = FALSE,
+           font = list(size = 14, color = "#922b21"), bgcolor = "rgba(255,255,255,0.8)",
+           bordercolor = "#c0392b", borderwidth = 1, borderpad = 4),
+      list(x = 1, y = -0.32, text = fuente_datos, showarrow = FALSE, xref = "paper", yref = "paper",
+           xanchor = "right", font = list(size = 10, color = SC[["secondary_red"]]))
+    )
+  )
+```
+
+El umbral óptimo hallado con el índice de Youden fue de `r round(umbral, 3)`.
+Al ser mayor que 0,5, el modelo exige una probabilidad estimada alta para clasificar a un país como "Si", lo que favorece la especificidad (pocos falsos positivos) a costa de la sensibilidad: el modelo es "conservador" y solo declara que un país tiene acceso universal cuando la evidencia es clara.
+El área bajo la curva ROC en el conjunto de prueba es de `r auc_logit`, lo que significa que, si se toman al azar una observación con acceso universal y una sin él, el modelo asigna una mayor probabilidad a la primera en el `r percent(auc_logit, accuracy = 0.1)` de los casos.
+Un AUC de 0,5 corresponde a un clasificador aleatorio y un AUC de 1 a uno perfecto; valores superiores a 0,9 se consideran de discriminación excelente (Hosmer, Lemeshow y Sturdivant, 2013).
+
+```{r umbral metricas}
+performa <- function(cutoff, prob, ref, postarget, negtarget) {
+  predict <- factor(ifelse(prob >= cutoff, postarget, negtarget), levels = c(negtarget, postarget))
+  conf <- confusionMatrix(predict, ref, positive = postarget)
+  c(
+    Sensibilidad = unname(conf$byClass["Sensitivity"]),
+    Exactitud = unname(conf$overall["Accuracy"]),
+    Precision = unname(conf$byClass["Precision"]),
+    Especificidad = unname(conf$byClass["Specificity"])
+  )
+}
+
+co <- seq(0.02, 0.98, length = 100)
+result <- t(sapply(co, performa, prob = p_hat, ref = test$Acceso_95, postarget = "Si", negtarget = "No")) %>%
+  as.data.frame() %>%
+  mutate(Umbral = co) %>%
+  pivot_longer(-Umbral, names_to = "Métrica", values_to = "Valor")
+
+plot_ly(
+  result, x = ~Umbral, y = ~Valor, color = ~Métrica,
+  colors = c("Sensibilidad" = "#FF0000", "Exactitud" = "#FFD100", "Precision" = "#FF9999", "Especificidad" = "#990000"),
+  type = "scatter", mode = "lines", line = list(width = 3),
+  hoverinfo = "text",
+  text = ~paste("Métrica:", Métrica, "<br>Umbral:", round(Umbral, 3), "<br>Valor:", round(Valor, 3))
+) %>%
+  add_segments(
+    x = umbral, xend = umbral, y = 0, yend = 1,
+    line = list(color = "#c0392b", dash = "dash", width = 2),
+    name = "Umbral óptimo", inherit = FALSE
+  ) %>%
+  estilo_plotly(
+    "Figura 13. Desempeño del modelo Logit según el umbral de decisión",
+    "Umbral de decisión",
+    "Valor de la métrica"
+  ) %>%
+  layout(yaxis = list(range = c(0, 1.02)))
+```
+
+La Figura 13 ilustra el compromiso entre las métricas a medida que cambia el umbral: umbrales bajos clasifican a casi todos los países como "Si" (sensibilidad alta, especificidad baja) y umbrales altos hacen lo contrario.
+La exactitud se mantiene alta y estable en un rango amplio de umbrales intermedios, lo que indica que el modelo separa bien las clases y que las probabilidades estimadas tienden a concentrarse cerca de 0 o de 1.
+
+```{r confusion logit}
+cm_logit <- confusionMatrix(pred_clase_logit, test$Acceso_95, positive = "Si")
+
+tabla_confusion(cm_logit, "Tabla 13. Matriz de confusión - Modelo Logit")
+
+tabla_metricas(cm_logit, "Tabla 14. Métricas de evaluación del modelo Logit")
+```
+
+El modelo Logit clasifica correctamente el `r fmt(cm_logit$overall["Accuracy"])` de las observaciones del conjunto de prueba (IC 95%: `r fmt(cm_logit$overall["AccuracyLower"])` - `r fmt(cm_logit$overall["AccuracyUpper"])`), muy por encima de la tasa de no información (`r fmt(cm_logit$overall["AccuracyNull"])`).
+El Kappa de `r round(cm_logit$overall["Kappa"], 3)` refleja un acuerdo `r ifelse(cm_logit$overall["Kappa"] > 0.8, "casi perfecto", ifelse(cm_logit$overall["Kappa"] > 0.6, "sustancial", "moderado"))` más allá del azar.
+La sensibilidad es de `r fmt(cm_logit$byClass["Sensitivity"])` y la especificidad de `r fmt(cm_logit$byClass["Specificity"])`; cuando el modelo predice acceso universal acierta en el `r fmt(cm_logit$byClass["Pos Pred Value"])` de los casos y cuando predice que no lo hay acierta en el `r fmt(cm_logit$byClass["Neg Pred Value"])`.
+
+# Comparación de modelos
+
+Para comparar los modelos se evalúan los tres clasificadores sobre el mismo conjunto de prueba (los `r particion$Países[2]` países que no se usaron en el entrenamiento).
+La comparación principal se realiza entre el **KNN (caret)**, que usa las mismas variables que el Logit y selecciona k por validación cruzada, y el **Logit**; el KNN (class) se incluye como referencia.
+
+```{r comparacion}
+roc_knn <- roc(response = test$Acceso_95, predictor = pred_prob_knn$Si, levels = c("No", "Si"), direction = "<")
+roc_class <- roc(response = test$Acceso_95, predictor = prob_knn_class, levels = c("No", "Si"), direction = "<")
+
+brier <- function(prob) mean((prob - test$Y)^2)
+
+fila_metricas <- function(cm, roc_obj, prob) {
+  c(
+    cm$overall["Accuracy"],
+    cm$overall["Kappa"],
+    cm$byClass["Sensitivity"],
+    cm$byClass["Specificity"],
+    cm$byClass["Pos Pred Value"],
+    cm$byClass["Neg Pred Value"],
+    cm$byClass["F1"],
+    cm$byClass["Balanced Accuracy"],
+    as.numeric(auc(roc_obj)),
+    brier(prob),
+    cm$table["Si", "No"],
+    cm$table["No", "Si"]
+  )
+}
+
+comparacion_integral <- data.frame(
+  Metrica = c(
+    "Exactitud (Accuracy)", "Kappa de Cohen", "Sensibilidad", "Especificidad",
+    "Valor Predictivo Positivo", "Valor Predictivo Negativo", "F1",
+    "Exactitud Balanceada", "AUC (área bajo la curva ROC)", "Puntaje de Brier (menor es mejor)",
+    "Falsos positivos (predice Si, es No)", "Falsos negativos (predice No, es Si)"
+  ),
+  KNN_class = fila_metricas(cm_class, roc_class, prob_knn_class),
+  KNN_caret = fila_metricas(cm_caret, roc_knn, pred_prob_knn$Si),
+  Logit = fila_metricas(cm_logit, roc_logit, p_hat)
+)
+
+mejor <- c(rep("max", 9), rep("min", 3))
+ganador <- sapply(seq_len(nrow(comparacion_integral)), function(i) {
+  valores <- unlist(comparacion_integral[i, c("KNN_caret", "Logit")])
+  if (abs(diff(valores)) < 1e-9) return("Empate")
+  c("KNN (caret)", "Logit")[if (mejor[i] == "max") which.max(valores) else which.min(valores)]
+})
+
+comparacion_integral %>%
+  mutate(
+    across(KNN_class:Logit, ~ if_else(row_number() > 10, as.character(round(., 0)), sprintf("%.4f", .))),
+    `Mejor (KNN caret vs Logit)` = ganador
+  ) %>%
+  kbl(
+    caption = "Tabla 15. Comparación integral del desempeño de los modelos en el conjunto de prueba",
+    align = c("l", "c", "c", "c", "c"),
+    col.names = c("Métrica", "KNN (class)", "KNN (caret)", "Logit", "Mejor (KNN caret vs Logit)")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 13,
+    position = "center"
+  ) %>%
+  row_spec(0, background = "#c0392b", color = "white", bold = TRUE) %>%
+  row_spec(c(1, 3, 9), background = "#f9ebea") %>%
+  column_spec(1, bold = TRUE, width = "6cm") %>%
+  column_spec(2:4, width = "2.5cm") %>%
+  column_spec(5, bold = TRUE, color = SC[["dark_red"]]) %>%
+  footnote(
+    general = "Clase positiva: 'Si' (acceso >= 95%). Elaboración propia con base en OWID y Banco Mundial (2000-2022).",
+    general_title = "Nota: ",
+    footnote_as_chunk = TRUE
+  )
+```
+
+```{r pruebas comparacion}
+# Prueba de DeLong para comparar los AUC (curvas pareadas sobre las mismas observaciones)
+delong <- roc.test(roc_knn, roc_logit, method = "delong", paired = TRUE)
+
+# Prueba de McNemar sobre aciertos y errores pareados de ambos modelos
+acierto_knn <- pred_clase_knn == test$Acceso_95
+acierto_logit <- pred_clase_logit == test$Acceso_95
+tabla_pares <- table(
+  KNN = factor(acierto_knn, levels = c(TRUE, FALSE), labels = c("Acierta", "Falla")),
+  Logit = factor(acierto_logit, levels = c(TRUE, FALSE), labels = c("Acierta", "Falla"))
+)
+mcnemar_modelos <- mcnemar.test(tabla_pares)
+
+data.frame(
+  Prueba = c("DeLong (AUC KNN caret vs. AUC Logit)", "McNemar (errores KNN caret vs. Logit)"),
+  Hipótesis_nula = c("Los dos modelos tienen el mismo AUC", "Los dos modelos tienen la misma tasa de error"),
+  Estadístico = c(round(delong$statistic, 3), round(mcnemar_modelos$statistic, 3)),
+  Valor_p = c(sprintf("%.4f", delong$p.value), sprintf("%.4f", mcnemar_modelos$p.value)),
+  Conclusión = c(
+    ifelse(delong$p.value < 0.05, "Diferencia significativa al 5%", "No hay diferencia significativa al 5%"),
+    ifelse(mcnemar_modelos$p.value < 0.05, "Diferencia significativa al 5%", "No hay diferencia significativa al 5%")
+  )
+) %>%
+  tabla_estilo(
+    "Tabla 16. Pruebas estadísticas para comparar los modelos KNN (caret) y Logit",
+    nota = paste0(
+      "Observaciones donde solo acierta KNN: ", tabla_pares["Acierta", "Falla"],
+      "; donde solo acierta Logit: ", tabla_pares["Falla", "Acierta"],
+      "; donde ambos aciertan: ", tabla_pares["Acierta", "Acierta"],
+      "; donde ambos fallan: ", tabla_pares["Falla", "Falla"], "."
+    ),
+    col.names = c("Prueba", "Hipótesis nula", "Estadístico", "Valor p", "Conclusión"),
+    align = c("l", "l", "c", "c", "l")
+  )
+```
+
+```{r area}
+roc_comparada <- bind_rows(
+  data.frame(FPR = 1 - roc_class$specificities, TPR = roc_class$sensitivities, Modelo = "KNN (class)"),
+  data.frame(FPR = 1 - roc_knn$specificities, TPR = roc_knn$sensitivities, Modelo = "KNN (caret)"),
+  data.frame(FPR = 1 - roc_logit$specificities, TPR = roc_logit$sensitivities, Modelo = "Logit")
+) %>%
+  arrange(Modelo, FPR, TPR)
+
+auc_knn <- round(as.numeric(auc(roc_knn)), 4)
+auc_class <- round(as.numeric(auc(roc_class)), 4)
+
+plot_ly(colors = c("KNN (class)" = "#FF9999", "KNN (caret)" = "#922b21", "Logit" = "#FFD100")) %>%
+  add_trace(
+    x = c(0, 1), y = c(0, 1), type = "scatter", mode = "lines",
+    line = list(dash = "dash", color = "#b0b0b0", width = 1), name = "Clasificador aleatorio"
+  ) %>%
+  add_trace(
+    data = roc_comparada, x = ~FPR, y = ~TPR, color = ~Modelo,
+    type = "scatter", mode = "lines", line = list(width = 3),
+    hoverinfo = "text",
+    text = ~paste0(Modelo, "<br>FPR: ", round(FPR, 3), "<br>TPR: ", round(TPR, 3))
+  ) %>%
+  estilo_plotly(
+    "Figura 14. Curvas ROC comparadas",
+    "Tasa de falsos positivos (1 - Especificidad)",
+    "Tasa de verdaderos positivos (Sensibilidad)"
+  ) %>%
+  layout(
+    xaxis = list(range = c(0, 1)),
+    yaxis = list(range = c(0, 1.02)),
+    annotations = list(
+      list(x = 0.7, y = 0.35, text = paste("AUC KNN (class) =", auc_class), showarrow = FALSE,
+           font = list(color = "#FF9999", size = 14)),
+      list(x = 0.7, y = 0.25, text = paste("AUC KNN (caret) =", auc_knn), showarrow = FALSE,
+           font = list(color = "#922b21", size = 14)),
+      list(x = 0.7, y = 0.15, text = paste("AUC Logit =", auc_logit), showarrow = FALSE,
+           font = list(color = "#B8860B", size = 14)),
+      list(x = 1, y = -0.32, text = fuente_datos, showarrow = FALSE, xref = "paper", yref = "paper",
+           xanchor = "right", font = list(size = 10, color = SC[["secondary_red"]]))
+    )
+  )
+```
+
+```{r barras}
+metricas_comparacion <- comparacion_integral %>%
+  slice(c(1, 2, 3, 4, 7, 8, 9)) %>%
+  mutate(Metrica = c("Exactitud", "Kappa", "Sensibilidad", "Especificidad", "F1", "Exactitud balanceada", "AUC")) %>%
+  pivot_longer(-Metrica, names_to = "Modelo", values_to = "Valor") %>%
+  mutate(
+    Modelo = recode(Modelo, KNN_class = "KNN (class)", KNN_caret = "KNN (caret)"),
+    Metrica = factor(Metrica, levels = c("Exactitud", "Kappa", "Sensibilidad", "Especificidad", "F1", "Exactitud balanceada", "AUC"))
+  )
+
+plot_ly(
+  metricas_comparacion, x = ~Metrica, y = ~Valor, color = ~Modelo,
+  colors = c("KNN (class)" = "#FF9999", "KNN (caret)" = "#922b21", "Logit" = "#FFD100"),
+  type = "bar",
+  text = ~sprintf("%.3f", Valor), textposition = "outside",
+  hovertemplate = "%{x}<br>%{y:.4f}<extra></extra>"
+) %>%
+  estilo_plotly("Figura 15. Comparación de métricas entre modelos", "", "Valor") %>%
+  layout(barmode = "group", yaxis = list(range = c(0, 1.1)))
+```
+
+```{r texto comparacion, include=FALSE}
+cmp <- function(fila) {
+  v <- unlist(comparacion_integral[fila, c("KNN_caret", "Logit")])
+  list(knn = v[1], logit = v[2])
+}
+acc_c <- cmp(1); sen_c <- cmp(3); esp_c <- cmp(4); auc_c <- cmp(9); bri_c <- cmp(10); kap_c <- cmp(2); f1_c <- cmp(7); bal_c <- cmp(8)
+quien <- function(x, mayor = TRUE) {
+  if (abs(x$knn - x$logit) < 1e-9) return("ambos modelos empatan")
+  if ((x$knn > x$logit) == mayor) "el KNN (caret)" else "el Logit"
+}
+```
+
+A continuación se responden las preguntas planteadas para la comparación:
+
+-   **¿Cuál tiene mejor exactitud (accuracy)?** La exactitud es de `r fmt(acc_c$knn)` para el KNN (caret) y de `r fmt(acc_c$logit)` para el Logit, por lo que `r quien(acc_c)` presenta la mayor exactitud.
+    Ambos valores superan ampliamente la tasa de no información (`r fmt(cm_logit$overall["AccuracyNull"])`).
+    La exactitud balanceada, que promedia el desempeño en ambas clases, sigue el mismo patrón (`r fmt(bal_c$knn)` vs. `r fmt(bal_c$logit)`).
+
+-   **¿Cuál logra mayor sensibilidad o detecta mejor los casos positivos?** La sensibilidad (proporción de países con acceso universal correctamente identificados) es `r fmt(sen_c$knn)` para el KNN y `r fmt(sen_c$logit)` para el Logit: `r quien(sen_c)` detecta mejor los casos positivos.
+    En cuanto a la especificidad (detección de países **sin** acceso universal, que en términos de política pública es el grupo de mayor interés), los valores son `r fmt(esp_c$knn)` y `r fmt(esp_c$logit)`, respectivamente, siendo `r quien(esp_c)` el que identifica mejor a los países rezagados.
+
+-   **¿Cuál tiene mejor AUC?** El AUC del KNN (caret) es `r round(auc_c$knn, 4)` y el del Logit es `r round(auc_c$logit, 4)`, por lo que `r quien(auc_c)` tiene la mayor capacidad de discriminación global.
+    Según la prueba de DeLong (Tabla 16), la diferencia `r ifelse(delong$p.value < 0.05, "es estadísticamente significativa", "no es estadísticamente significativa")` al 5% (p = `r round(delong$p.value, 4)`).
+
+-   **¿Y el KNN (class)?** Este modelo obtiene una exactitud (`r fmt(cm_class$overall["Accuracy"])`) incluso algo mayor que la de los otros dos, pero su valor de k se eligió maximizando la exactitud directamente sobre el conjunto de prueba, por lo que esa cifra es optimista y no es comparable en igualdad de condiciones. Aun así, su AUC (`r round(auc_class, 4)`) queda por debajo del Logit.
+
+-   **Otras comparaciones.** El Kappa (`r round(kap_c$knn, 3)` vs. `r round(kap_c$logit, 3)`) y el F1 (`r round(f1_c$knn, 3)` vs. `r round(f1_c$logit, 3)`) confirman las conclusiones anteriores.
+    El puntaje de Brier, que mide la calidad de las probabilidades estimadas (el error cuadrático medio entre la probabilidad predicha y el resultado observado), es `r round(bri_c$knn, 4)` para el KNN y `r round(bri_c$logit, 4)` para el Logit, siendo mejor `r quien(bri_c, mayor = FALSE)`.
+    Finalmente, la prueba de McNemar (p = `r round(mcnemar_modelos$p.value, 4)`) indica que la diferencia en las tasas de error de ambos modelos `r ifelse(mcnemar_modelos$p.value < 0.05, "es estadísticamente significativa", "no es estadísticamente significativa")` al 5%.
+
+## Análisis de los errores de clasificación
+
+Para entender en qué casos se equivocan los modelos, la Tabla 17 muestra los países del conjunto de prueba con más observaciones mal clasificadas por el modelo Logit, junto con su nivel real de acceso.
+
+```{r errores}
+errores <- test %>%
+  mutate(
+    Prob_logit = p_hat,
+    Pred_logit = pred_clase_logit,
+    Pred_knn = pred_clase_knn,
+    Error_logit = Pred_logit != Acceso_95,
+    Error_knn = Pred_knn != Acceso_95
+  )
+
+errores %>%
+  group_by(Pais, Region) %>%
+  summarise(
+    `Años evaluados` = n(),
+    `Errores Logit` = sum(Error_logit),
+    `Errores KNN` = sum(Error_knn),
+    `Acceso promedio (%)` = round(mean(Acceso), 1),
+    `Prob. media Logit` = round(mean(Prob_logit), 3),
+    .groups = "drop"
+  ) %>%
+  filter(`Errores Logit` > 0 | `Errores KNN` > 0) %>%
+  arrange(desc(`Errores Logit` + `Errores KNN`)) %>%
+  head(15) %>%
+  tabla_estilo(
+    "Tabla 17. Países del conjunto de prueba con más errores de clasificación",
+    col.names = c("País", "Región", "Años evaluados", "Errores Logit", "Errores KNN", "Acceso promedio (%)", "Prob. media Logit"),
+    align = c("l", "l", rep("r", 5))
+  )
+```
+
+```{r Grafica 16}
+paises_transicion <- errores %>%
+  group_by(Pais) %>%
+  filter(n_distinct(Acceso_95) == 2) %>%
+  ungroup() %>%
+  distinct(Pais) %>%
+  pull(Pais)
+
+errores %>%
+  filter(Pais %in% paises_transicion) %>%
+  plot_ly(x = ~Año, color = ~Pais) %>%
+  add_lines(
+    y = ~Prob_logit, line = list(width = 2.5),
+    text = ~paste0("<b>", Pais, "</b><br>Año: ", Año, "<br>Prob. Logit: ", round(Prob_logit, 3),
+                   "<br>Acceso real: ", round(Acceso, 1), "%"),
+    hoverinfo = "text"
+  ) %>%
+  add_segments(
+    x = 2000, xend = 2022, y = umbral, yend = umbral, inherit = FALSE,
+    line = list(color = "black", dash = "dash", width = 1.5), name = "Umbral óptimo"
+  ) %>%
+  estilo_plotly(
+    "Figura 16. Probabilidad estimada (Logit) en países de prueba que alcanzaron el acceso universal",
+    "Año",
+    "Probabilidad estimada de acceso >= 95%"
+  ) %>%
+  layout(
+    yaxis = list(range = c(0, 1.02)),
+    legend = list(orientation = "v", x = 1.02, y = 1, xanchor = "left"),
+    margin = list(r = 160)
+  )
+```
+
+La Figura 16 muestra la trayectoria de la probabilidad estimada por el Logit para los países del conjunto de prueba que **cruzaron el umbral del 95% durante el periodo** (pasaron de "No" a "Si").
+Estos países de transición son, precisamente, los casos más difíciles de clasificar: sus características estructurales se ubican en la frontera de decisión, por lo que los errores se concentran en los años cercanos al cambio de clase.
+Se observa que, en general, la probabilidad estimada aumenta con el tiempo a medida que crecen el ingreso y la urbanización, lo que muestra que el modelo captura adecuadamente la dinámica del proceso de electrificación.
+
+El análisis de los errores (Tabla 17 y Figura 16) permite identificar tres tipos de casos:
+
+-   **Países que superan lo que predicen sus condiciones estructurales.** El caso más notable es **Marruecos**, que pasó de cerca de 70% de cobertura en 2000 a prácticamente 100% gracias al Programa de Electrificación Rural Global (PERG), mientras que el Logit le asigna probabilidades bajas por su nivel de ingreso y su estructura productiva. Algo similar ocurre con **Tayikistán**, con coberturas cercanas al 100% durante todo el periodo pese a ser uno de los países más pobres de Asia, gracias a la herencia de la red eléctrica soviética y a su gran capacidad hidroeléctrica. Estos países son "falsos negativos" que en realidad muestran historias de éxito que las variables estructurales no capturan.
+-   **Países de transición o cercanos al umbral**, como Bulgaria, Paraguay, Costa Rica, Vietnam o Colombia, cuya cobertura oscila alrededor del 95% y cuya probabilidad estimada está cerca del umbral de decisión. En el caso de **Colombia**, por ejemplo, el Logit la clasifica como "No" en los primeros años del periodo (con probabilidades entre 0,52 y 0,70, apenas por debajo del umbral de `r round(umbral, 3)`) y como "Si" a partir de 2007, mientras que su cobertura real ya estaba alrededor del 95%.
+-   **Países con altas probabilidades pero sin acceso universal** (falsos positivos), como Nepal o Guyana en el caso del KNN: son países que, por sus características, el modelo "esperaría" ver con acceso universal, y cuya brecha podría responder a factores geográficos (zonas montañosas o selváticas de difícil acceso) o de gestión.
+
+## ¿Qué modelo se recomienda?
+
+```{r texto recomendacion, include=FALSE}
+logit_mejor_auc <- auc_c$logit >= auc_c$knn
+logit_mejor_acc <- acc_c$logit >= acc_c$knn
+```
+
+Al ponderar todos los criterios, se recomienda el **modelo Logit** para este problema, por las siguientes razones:
+
+1.  **Desempeño predictivo:** `r if (logit_mejor_acc && logit_mejor_auc) "el Logit obtiene una exactitud y un AUC iguales o superiores a los del KNN" else if (logit_mejor_auc) "aunque el KNN obtiene una exactitud ligeramente mayor, el Logit obtiene un AUC superior, es decir, ordena mejor las observaciones según su probabilidad de acceso universal" else if (logit_mejor_acc) "el Logit obtiene una exactitud igual o superior a la del KNN, mientras que el AUC de ambos es muy similar" else "aunque el KNN obtiene métricas ligeramente superiores, las diferencias son pequeñas"`, `r ifelse(delong$p.value < 0.05, "y la diferencia en AUC es estadísticamente significativa", "y las diferencias entre ambos modelos no son estadísticamente significativas según la prueba de DeLong")`.
+    Esto es coherente con la Figura 3: la relación entre el ingreso y el acceso tiene una forma sigmoide que el Logit captura de forma natural.
+2.  **Interpretabilidad:** el Logit permite cuantificar el efecto de cada variable (odds ratios), lo que es indispensable cuando el objetivo es orientar políticas públicas (por ejemplo, saber cuánto aumenta la probabilidad de acceso universal ante un aumento de la urbanización o del ingreso).
+    El KNN, en cambio, funciona como una "caja negra" que no permite identificar los determinantes del acceso.
+3.  **Calidad de las probabilidades:** las probabilidades del Logit son continuas y suaves, mientras que las del KNN son proporciones de votos entre k vecinos, lo que las hace más discretas.
+4.  **Eficiencia y escalabilidad:** el Logit es un modelo compacto (`r length(coef(fit_logit))` coeficientes) que predice nuevos países de forma instantánea, mientras que el KNN debe almacenar toda la base de entrenamiento y calcular distancias a todas las observaciones en cada predicción.
+
+El KNN sigue siendo una alternativa válida y competitiva, útil para capturar patrones locales no lineales sin imponer una forma funcional, y puede servir como modelo de contraste para validar los resultados del Logit.
+
+# Conclusiones
+
+::: academic-card
+El presente estudio tuvo como objetivo desarrollar y comparar modelos de clasificación supervisada (KNN y regresión logística) para predecir si un país tiene acceso a la electricidad para al menos el 95% de su población, a partir de variables económicas, demográficas y geográficas, utilizando información de `r n_distinct(Base_datos$Codigo)` países entre 2000 y 2022.
+
+**Sobre los determinantes del acceso universal.** El análisis descriptivo y el modelo Logit confirman que el acceso universal a la electricidad es, ante todo, un reflejo del nivel de desarrollo económico y de la estructura territorial de la población.
+El PIB per cápita es la variable con mayor capacidad para separar las dos clases, seguida de la fecundidad, la participación de la agricultura en la economía y la urbanización.
+Los países que aún no alcanzan el acceso universal se caracterizan por ingresos bajos, población predominantemente rural, alta dependencia de la agricultura y un crecimiento poblacional acelerado que obliga a expandir la red solo para no perder cobertura.
+
+En el modelo multivariado, el PIB per cápita, la urbanización y la densidad poblacional aumentan significativamente la probabilidad de acceso universal, mientras que la fecundidad la disminuye; la agricultura y el crecimiento poblacional pierden significancia porque su información ya está contenida en el ingreso y la fecundidad.
+La región aporta información relevante aun controlando por las demás variables, y la condición de no tener litoral cambia de signo respecto al análisis descriptivo, reflejando la herencia de la electrificación soviética en Asia Central.
+Estos resultados muestran la importancia de analizar las variables de forma conjunta y no solo de manera bivariada.
+
+**Sobre los modelos.** Ambos modelos lograron un desempeño muy alto: exactitudes de `r fmt(acc_c$knn)` (KNN caret) y `r fmt(acc_c$logit)` (Logit) y AUC de `r round(auc_c$knn, 3)` y `r round(auc_c$logit, 3)`, respectivamente, muy por encima del `r fmt(cm_logit$overall["AccuracyNull"])` que se obtendría prediciendo siempre la clase mayoritaria.
+Estos resultados son especialmente robustos porque la evaluación se hizo sobre **países que no participaron en el entrenamiento** y porque los hiperparámetros (k en KNN y el umbral en Logit) se seleccionaron sin usar el conjunto de prueba.
+Las diferencias entre los dos modelos son pequeñas, pero el Logit ofrece la ventaja decisiva de la interpretabilidad, por lo que es el modelo recomendado.
+
+**¿El modelo ajustado logró responder al objetivo de la investigación?**
+Sí.
+El objetivo era construir y comparar modelos capaces de clasificar a los países según hayan alcanzado o no el acceso (casi) universal a la electricidad, e identificar las variables asociadas a esta condición.
+Los modelos clasifican correctamente cerca de `r round(10 * max(acc_c$knn, acc_c$logit))` de cada 10 observaciones de países nunca vistos, con un AUC superior a `r floor(100 * min(auc_c$knn, auc_c$logit)) / 100`, lo que demuestra que las variables seleccionadas contienen una señal muy fuerte sobre el acceso a la electricidad.
+Además, el modelo Logit permitió cuantificar la dirección y la magnitud del efecto de cada variable, cumpliendo también el propósito explicativo.
+
+No obstante, deben reconocerse algunas limitaciones:
+
+-   Los errores se concentran en los países de transición, cuya cobertura se encuentra cerca del 95%, y en países con trayectorias históricas particulares (Marruecos, Tayikistán) que las variables estructurales no capturan. Para estos casos, la clasificación binaria es sensible a pequeñas variaciones en la medición del acceso, que proviene de encuestas de hogares y modelos de estimación del Banco Mundial.
+-   El modelo es de naturaleza asociativa y no causal: por ejemplo, la urbanización facilita la electrificación, pero la electrificación también atrae población hacia las ciudades.
+-   Las observaciones de un mismo país en distintos años no son independientes; aunque la partición por países evita la fuga de información, los errores estándar del Logit podrían estar subestimados. Un modelo de panel con efectos aleatorios o errores agrupados por país permitiría hacer inferencias más rigurosas.
+-   Variables como la calidad institucional, la inversión en infraestructura, la disponibilidad de recursos energéticos o los conflictos armados, que no se incluyeron, podrían explicar parte de los errores.
+
+**Recomendaciones.** Con base en los hallazgos, se proponen las siguientes estrategias:
+
+1.  **Focalización:** los países con baja probabilidad estimada de acceso universal (ingreso bajo, alta ruralidad, alta dependencia agrícola y alto crecimiento poblacional, en su mayoría de África subsahariana) deben ser prioritarios para la cooperación internacional y el financiamiento de la meta 7.1 del ODS 7.
+2.  **Soluciones para zonas rurales:** como la ruralidad y la baja densidad elevan el costo de extender la red, es recomendable impulsar soluciones descentralizadas (mini-redes y sistemas solares domiciliarios), que reducen la dependencia de la infraestructura de transmisión.
+3.  **Aprender de los casos de éxito:** los países que alcanzaron el acceso universal con condiciones estructurales desfavorables, como Marruecos con su programa de electrificación rural, ofrecen lecciones de política replicables en otros países de ingreso medio-bajo.
+4.  **Uso del modelo como herramienta de alerta:** los países que el modelo clasifica con alta probabilidad de acceso universal, pero que en la realidad no lo han alcanzado, revelan brechas que no se explican por sus condiciones estructurales y que pueden deberse a problemas de gestión o de política energética; estos casos merecen un análisis particular.
+5.  **Mejoras metodológicas:** incorporar variables institucionales y de infraestructura, estimar modelos de panel, evaluar el umbral de 95% frente a otros umbrales (por ejemplo, 80% o 99%) y comparar con algoritmos de ensamble como Random Forest o Gradient Boosting.
+
+En síntesis, el aprendizaje supervisado demostró ser una herramienta eficaz para clasificar el acceso universal a la electricidad.
+La alta precisión de los modelos, unida a la interpretabilidad del Logit, permite no solo predecir qué países han alcanzado la meta, sino también entender por qué otros siguen rezagados, aportando evidencia útil para el diseño de políticas orientadas a cumplir el ODS 7.
+:::
+
+# Bibliografia
+
+-   Banco Mundial (2025). World Development Indicators: Access to electricity (% of population) [EG.ELC.ACCS.ZS]. <https://data.worldbank.org/indicator/EG.ELC.ACCS.ZS>
+
+-   Gapminder Foundation (2025). Systema Globalis y Fast Track datasets. <https://github.com/open-numbers>
+
+-   Hosmer, D. W., Lemeshow, S., & Sturdivant, R. X. (2013). Applied Logistic Regression (3ª ed.). John Wiley & Sons.
+
+-   IEA, IRENA, UNSD, World Bank, WHO (2024). Tracking SDG 7: The Energy Progress Report 2024. World Bank, Washington DC. <https://trackingsdg7.esmap.org/>
+
+-   James, G., Witten, D., Hastie, T., & Tibshirani, R. (2021). An Introduction to Statistical Learning with Applications in R (2ª ed.). Springer.
+
+-   Kuhn, M. (2008). Building Predictive Models in R Using the caret Package. Journal of Statistical Software, 28(5), 1-26.
+
+-   McFadden, D. (1979). Quantitative Methods for Analysing Travel Behaviour of Individuals: Some Recent Developments. En D. Hensher & P. Stopher (Eds.), Behavioural Travel Modelling (pp. 279-318). Croom Helm.
+
+-   Naciones Unidas (2015). Transformar nuestro mundo: la Agenda 2030 para el Desarrollo Sostenible. Objetivo 7: Energía asequible y no contaminante.
+
+-   Paredes, D. (2024). Aprendizaje supervisado. <https://bookdown.org/dparedesi/data-science-con-r/aprendizaje-supervisado.html>
+
+-   Ritchie, H., Rosado, P., & Roser, M. (2024). Access to Energy. Our World in Data. <https://ourworldindata.org/energy-access>
+
+-   Robin, X., Turck, N., Hainard, A., Tiberti, N., Lisacek, F., Sanchez, J.-C., & Müller, M. (2011). pROC: an open-source package for R and S+ to analyze and compare ROC curves. BMC Bioinformatics, 12, 77.
+
+-   Venables, W. N., & Ripley, B. D. (2002). Modern Applied Statistics with S (4ª ed.). Springer. (Paquete class).
+
+-   Wooldridge, J. M. (2012). Introductory Econometrics: A Modern Approach (5ª ed.). South-Western Cengage Learning.
+:::
+
+------------------------------------------------------------------------
+
+::: academic-footer
+**Universidad del Valle** \| *Facultad de ingenieria* \| Gestion de datos
+:::
+
+```{=html}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Smooth scroll para navegación académica
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    });
+  });
+  
+  // Resaltado de sección activa en TOC
+  const sections = document.querySelectorAll('h2, h3');
+  const navLinks = document.querySelectorAll('.tocify-item a');
+  
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const sectionHeight = section.clientHeight;
+      if (scrollY >= (sectionTop - 100)) {
+        current = section.getAttribute('id');
+      }
+    });
+    
+    navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === `#${current}`) {
+        link.classList.add('active');
+      }
+    });
+  });
+});
+</script>
+```
+
+```{=html}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Crear botón global
+  const globalToggle = document.createElement("button");
+  globalToggle.className = "global-code-toggle";
+  globalToggle.innerHTML = "Control de Código";
+  document.body.appendChild(globalToggle);
+
+  // Estado global
+  let allCodeVisible = true;
+
+  // Función para crear controles individuales
+  function initializeCodeToggles() {
+    const codeChunks = document.querySelectorAll("pre.r, pre.python, pre.sourceCode");
+    
+    codeChunks.forEach((chunk, index) => {
+      // Crear contenedor
+      const container = document.createElement("div");
+      container.className = "code-chunk";
+      
+      // Crear header
+      const header = document.createElement("div");
+      header.className = "code-header";
+      
+      // Obtener el lenguaje del código
+      const language = chunk.className.includes("r") ? "R" : 
+                      chunk.className.includes("python") ? "Python" : "Código";
+      
+      header.innerHTML = `
+        <div class="chunk-title">
+          <span class="code-status visible"></span>
+          ${language} - Chunk ${index + 1}
+        </div>
+        <div class="toggle-icon">▼</div>
+      `;
+      
+      // Crear contenido
+      const content = document.createElement("div");
+      content.className = "code-content expanded";
+      content.appendChild(chunk.cloneNode(true));
+      
+      // Reemplazar el chunk original
+      chunk.parentNode.replaceChild(container, chunk);
+      container.appendChild(header);
+      container.appendChild(content);
+      
+      // Agregar evento de click
+      header.addEventListener("click", function() {
+        const isExpanded = content.classList.contains("expanded");
+        const icon = this.querySelector(".toggle-icon");
+        const status = this.querySelector(".code-status");
+        
+        if (isExpanded) {
+          content.classList.remove("expanded");
+          content.classList.add("collapsed");
+          icon.classList.add("rotated");
+          status.classList.remove("visible");
+          status.classList.add("hidden");
+        } else {
+          content.classList.remove("collapsed");
+          content.classList.add("expanded");
+          icon.classList.remove("rotated");
+          status.classList.remove("hidden");
+          status.classList.add("visible");
+        }
+      });
+    });
+  }
+
+  // Función para toggle global
+  function toggleAllCode() {
+    const codeContents = document.querySelectorAll(".code-content");
+    const headers = document.querySelectorAll(".code-header");
+    
+    if (allCodeVisible) {
+      // Ocultar todo
+      codeContents.forEach(content => {
+        content.classList.remove("expanded");
+        content.classList.add("collapsed");
+      });
+      headers.forEach(header => {
+        const icon = header.querySelector(".toggle-icon");
+        const status = header.querySelector(".code-status");
+        icon.classList.add("rotated");
+        status.classList.remove("visible");
+        status.classList.add("hidden");
+      });
+      globalToggle.innerHTML = "Mostrar Todo el Código";
+      allCodeVisible = false;
+    } else {
+      // Mostrar todo
+      codeContents.forEach(content => {
+        content.classList.remove("collapsed");
+        content.classList.add("expanded");
+      });
+      headers.forEach(header => {
+        const icon = header.querySelector(".toggle-icon");
+        const status = header.querySelector(".code-status");
+        icon.classList.remove("rotated");
+        status.classList.remove("hidden");
+        status.classList.add("visible");
+      });
+      globalToggle.innerHTML = "Ocultar Todo el Código";
+      allCodeVisible = true;
+    }
+  }
+
+  // Inicializar
+  initializeCodeToggles();
+  
+  // Evento para el botón global
+  globalToggle.addEventListener("click", toggleAllCode);
+
+  // Agregar contenedor de controles globales
+  const globalControls = document.createElement("div");
+  globalControls.className = "code-toggle-container";
+  globalControls.innerHTML = `
+    <h4 style="margin-top: 0; color: var(--primary-red);">Controles de Visualización de Código</h4>
+    <p style="margin-bottom: 1rem; color: var(--dark-red);">
+      Utilice los siguientes controles para gestionar la visualización del código en este documento
+    </p>
+    <button class="code-toggle-btn" onclick="toggleAllCode()">Mostrar/Ocultar Todo el Código</button>
+    <button class="code-toggle-btn secondary" onclick="expandAllCode()">Expandir Todo</button>
+    <button class="code-toggle-btn secondary" onclick="collapseAllCode()">Contraer Todo</button>
+  `;
+
+  // Insertar después del primer h1
+  const firstHeading = document.querySelector("h1");
+  if (firstHeading) {
+    firstHeading.parentNode.insertBefore(globalControls, firstHeading.nextSibling);
+  }
+
+  // Funciones globales para los botones
+  window.toggleAllCode = toggleAllCode;
+  window.expandAllCode = function() {
+    const codeContents = document.querySelectorAll(".code-content");
+    const headers = document.querySelectorAll(".code-header");
+    
+    codeContents.forEach(content => {
+      content.classList.remove("collapsed");
+      content.classList.add("expanded");
+    });
+    headers.forEach(header => {
+      const icon = header.querySelector(".toggle-icon");
+      const status = header.querySelector(".code-status");
+      icon.classList.remove("rotated");
+      status.classList.remove("hidden");
+      status.classList.add("visible");
+    });
+    globalToggle.innerHTML = "Ocultar Todo el Código";
+    allCodeVisible = true;
+  };
+
+  window.collapseAllCode = function() {
+    const codeContents = document.querySelectorAll(".code-content");
+    const headers = document.querySelectorAll(".code-header");
+    
+    codeContents.forEach(content => {
+      content.classList.remove("expanded");
+      content.classList.add("collapsed");
+    });
+    headers.forEach(header => {
+      const icon = header.querySelector(".toggle-icon");
+      const status = header.querySelector(".code-status");
+      icon.classList.add("rotated");
+      status.classList.remove("visible");
+      status.classList.add("hidden");
+    });
+    globalToggle.innerHTML = "Mostrar Todo el Código";
+    allCodeVisible = false;
+  };
+});
+</script>
+```
+
+```{=html}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+```
