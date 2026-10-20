@@ -1,23 +1,22 @@
 ---
-title: "Clasificación del Acceso Universal a la Electricidad en el Mundo mediante KNN y Regresión Logística"
-subtitle: "Aguirre Aldana Joan Sebastian, Barros Rayo Alejandro, Muñoz Portela Diego, Portilla Aguirre Johan Camilo"
-author: ""
-date: "`r format(Sys.Date(), '%d %B %Y')`"
+title: "¿Qué separa a los países con electricidad para todos del resto?"
+subtitle: "Clasificación del acceso universal a la electricidad con KNN y regresión logística"
+author: "Aguirre Aldana Joan Sebastian · Barros Rayo Alejandro · Muñoz Portela Diego · Portilla Aguirre Johan Camilo"
+date: "`r meses <- c('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'); paste(as.integer(format(Sys.Date(), '%d')), 'de', meses[as.integer(format(Sys.Date(), '%m'))], 'de', format(Sys.Date(), '%Y'))`"
 output:
-  prettydoc::html_pretty:
-    theme: cayman
+  html_document:
+    theme: default
     highlight: tango
     toc: true
-    toc_depth: 4
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
     number_sections: true
-    fig_width: 8
-    fig_height: 5
-    fig_caption: true
-    dev: "png"
-    keep_md: false
+    code_folding: hide
     self_contained: true
-    css: Sebastian-styles.css
-    code_folding: none
+    fig_caption: true
+    df_print: paged
 editor_options:
   markdown:
     wrap: sentence
@@ -29,7 +28,7 @@ knitr::opts_chunk$set(
   warning = FALSE,
   message = FALSE,
   fig.align = "center",
-  out.width = "85%",
+  out.width = "100%",
   comment = ""
 )
 #Librerias
@@ -54,696 +53,621 @@ library(htmltools)
 library(plotly)
 ```
 
-```{r tema grafias, include=FALSE}
-TS <- function() {
-  theme_minimal(base_size = 12) +
-    theme(
-      text = element_text(
-        color = "#2c2c2c"
-      ),
-      plot.title = element_text(
-        family = "Playfair Display",
-        face = "bold",
-        color = "#FF0000",
-        size = rel(1.4),
-        hjust = 0.5,
-        margin = margin(b = 15)
-      ),
-      plot.subtitle = element_text(
-        family = "Source Serif Pro",
-        color = "#CC0000",
-        size = rel(1.0),
-        hjust = 0.5,
-        margin = margin(b = 20)
-      ),
-      plot.caption = element_text(
-        family = "Source Serif Pro",
-        color = "#666666",
-        size = rel(0.8),
-        hjust = 1,
-        face = "italic"
-      ),
-      axis.title = element_text(
-        family = "Playfair Display",
-        color = "#990000",
-        size = rel(1.0),
-        face = "bold"
-      ),
-      axis.text = element_text(
-        color = "#333333",
-        size = rel(0.9)
-      ),
-      legend.title = element_text(
-        family = "Playfair Display",
-        color = "#990000",
-        face = "bold",
-        size = rel(0.9)
-      ),
-      legend.text = element_text(
-        color = "#333333",
-        size = rel(0.8)
-      ),
-      panel.background = element_rect(fill = "#FFFDF5", color = NA),
-      plot.background = element_rect(fill = "white", color = NA),
-      panel.grid.major = element_line(
-        color = "#FFE5E5",
-        linewidth = 0.3,
-        linetype = "solid"
-      ),
-      panel.grid.minor = element_line(
-        color = "#FFE5E5",
-        linewidth = 0.1,
-        linetype = "solid"
-      ),
-      panel.border = element_rect(
-        fill = NA,
-        color = "#FFE5E5",
-        linewidth = 0.5
-      ),
-      axis.line = element_line(
-        color = "#FF3333",
-        linewidth = 0.5
-      ),
-      axis.ticks = element_line(
-        color = "#FF3333",
-        linewidth = 0.5
-      ),
-      legend.background = element_rect(
-        fill = "#FFFDF5",
-        color = "#FFE5E5"
-      ),
-      legend.key = element_rect(
-        fill = "#FFFDF5",
-        color = NA
-      ),
-      legend.position = "top",
-      legend.justification = "center",
-      plot.margin = margin(20, 20, 20, 20),
-      panel.spacing = unit(1, "lines"),
-      strip.background = element_rect(
-        fill = "#FF0000",
-        color = "#CC0000"
-      ),
-      strip.text = element_text(
-        family = "Playfair Display",
-        color = "white",
-        face = "bold",
-        size = rel(0.9)
-      )
-    )
-}
+```{r tema, include=FALSE}
+# Paleta inspirada en Our World in Data y en los informes del FMI
 
-scale_fill_sebastian <- function(palette = "main", ...) {
-  scale_fill_manual(
-    values = c(
-      sebastian_colors["primary_red"],
-      sebastian_colors["secondary_red"], 
-      sebastian_colors["accent_red"],
-      sebastian_colors["gold"],
-      sebastian_colors["dark_red"]
-    ),
-    ...
-  )
-}
-
-
-
-SC <- c(
-  primary_red = "#FF0000",
-  secondary_red = "#CC0000", 
-  accent_red = "#FF3333",
-  light_red = "#FFE5E5",
-  dark_red = "#990000",
-  gold = "#FFD100",
-  parchment = "#FFFDF5",
-  white = "#FFFFFF",
-  gray_text = "#333333"
+PAL <- c(
+  tinta      = "#1D2939",  # texto principal
+  navy       = "#0B2545",  # encabezados y bandas
+  azul       = "#2C6BB8",  # acento principal
+  naranja    = "#C9592E",  # contraste (clase "No")
+  teal       = "#00847E",
+  morado     = "#A2559C",
+  ambar      = "#E1A23B",  # resaltados puntuales
+  gris       = "#6B7785",  # texto secundario
+  gris_claro = "#9AA5B1",
+  grid       = "#E3E7ED",  # líneas de cuadrícula
+  fondo      = "#F6F8FA",
+  celeste    = "#EEF4FB"   # filas resaltadas
 )
 
-set_sebastian_theme <- function() {
-  theme_set(TS())
-  update_geom_defaults("bar", list(fill = sebastian_colors["primary_red"]))
-  update_geom_defaults("col", list(fill = sebastian_colors["primary_red"]))
-  update_geom_defaults("point", list(color = sebastian_colors["primary_red"]))
-  update_geom_defaults("line", list(color = sebastian_colors["primary_red"]))
-  update_geom_defaults("boxplot", list(fill = sebastian_colors["light_red"]))
-  update_geom_defaults("violin", list(fill = sebastian_colors["light_red"]))
-  update_geom_defaults("density", list(fill = sebastian_colors["light_red"]))
-}
-  
-scale_color_sebastian <- function(palette = "main", ...) {
-  scale_color_manual(
-    values = c(
-      sebastian_colors["primary_red"],
-      sebastian_colors["secondary_red"],
-      sebastian_colors["accent_red"],
-      sebastian_colors["gold"],
-      sebastian_colors["dark_red"]
-    ),
-    ...
-  )
-}
+# Colores de la variable dependiente
+col_acceso <- c("No" = "#C9592E", "Si" = "#2C6BB8")
 
+# Colores por continente (los mismos que usa Our World in Data)
+col_region <- c(
+  "África"       = "#A2559C",
+  "Asia"         = "#00847E",
+  "Europa"       = "#4C6A9C",
+  "Norteamérica" = "#E56E5A",
+  "Oceanía"      = "#9A5129",
+  "Sudamérica"   = "#883039"
+)
+
+# Colores de los modelos
+col_modelos <- c("KNN (class)" = "#9AA5B1", "KNN (caret)" = "#00847E", "Logit" = "#2C6BB8")
+
+fuente_titulos <- "Libre Franklin, Helvetica Neue, Arial, sans-serif"
+fuente_texto   <- "Lato, Helvetica Neue, Arial, sans-serif"
+
+# Tema ggplot: fondo blanco, cuadrícula horizontal punteada y títulos alineados a la izquierda
+tema_datos <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      text = element_text(family = "Lato", color = PAL[["tinta"]]),
+      plot.title = element_text(family = "Libre Franklin", face = "bold", size = rel(1.25), hjust = 0, margin = margin(b = 6)),
+      plot.subtitle = element_text(color = PAL[["gris"]], hjust = 0, margin = margin(b = 12)),
+      plot.caption = element_text(color = PAL[["gris"]], size = rel(0.8), hjust = 0),
+      plot.title.position = "plot",
+      plot.caption.position = "plot",
+      axis.title = element_text(color = PAL[["gris"]], size = rel(0.9)),
+      axis.text = element_text(color = PAL[["gris"]]),
+      axis.line.x = element_line(color = PAL[["gris_claro"]], linewidth = 0.4),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_line(color = PAL[["grid"]], linetype = "dashed", linewidth = 0.4),
+      strip.text = element_text(family = "Libre Franklin", face = "bold", hjust = 0, color = PAL[["tinta"]]),
+      strip.background = element_blank(),
+      legend.position = "top",
+      legend.justification = "left",
+      legend.title = element_text(face = "bold", size = rel(0.85)),
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(16, 16, 16, 16)
+    )
+}
 ```
 
-
-```{r Tema, include=FALSE}
-Sebastian_css <- "
-
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@300;400;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@300;400;600&display=swap');
+```{css estilos, echo=FALSE}
+@import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
-  --primary-red: #FF0000;       /* Rojo puro y vibrante */
-  --secondary-red: #CC0000;     /* Rojo más oscuro para contraste */
-  --accent-red: #FF3333;        /* Rojo más suave para detalles */
-  --light-red: #FFE5E5;         /* Fondo suave rojo clarísimo */
-  --dark-red: #990000;          /* Rojo oscuro para texto o bordes */
-  --gold: #FFD100;              /* Dorado Univalle para acentos */
-  --parchment: #FFFDF5;         /* Base crema suave */
-  --W: #FFFFFF;
-  --gris-texto: #333333;
+  --tinta: #1D2939;
+  --navy: #0B2545;
+  --azul: #2C6BB8;
+  --azul-osc: #1E4F8C;
+  --naranja: #C9592E;
+  --teal: #00847E;
+  --ambar: #E1A23B;
+  --gris: #6B7785;
+  --gris-claro: #9AA5B1;
+  --linea: #E3E7ED;
+  --fondo: #F6F8FA;
+  --celeste: #EEF4FB;
+  --titulos: 'Libre Franklin', 'Helvetica Neue', Arial, sans-serif;
+  --texto: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'JetBrains Mono', Consolas, monospace;
 }
+
+/* ---------- Base ---------- */
+html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Source Serif Pro', 'Times New Roman', serif;
-  font-weight: 400;
+  font-family: var(--texto);
+  font-size: 17px;
   line-height: 1.7;
-  color: #2c2c2c;
-  background-color: var(--parchment);
-  font-size: 16px;
+  color: var(--tinta);
+  background: var(--fondo);
+  -webkit-font-smoothing: antialiased;
 }
 
-.main-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-  background: white;
-  box-shadow: 0 0 30px rgba(122, 28, 28, 0.08);
-  border-left: 1px solid var(--light-red);
-  border-right: 1px solid var(--light-red);
+.main-container {
+  max-width: 1280px;
+  padding-top: 0;
 }
 
-
-/* ENCABEZADOS ACADÉMICOS - CORREGIDOS A ROJOS */
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Playfair Display', 'Times New Roman', serif;
-  color: var(--primary-red) !important;
-  border-bottom: none;
-  margin-top: 2.5rem;
-  margin-bottom: 1.5rem;
-  font-weight: 600;
+.main-container > .row > .toc-content,
+.toc-content {
+  background: #FFFFFF;
+  padding: 0 48px 48px 48px;
+  border-left: 1px solid var(--linea);
+  border-right: 1px solid var(--linea);
 }
 
-h1 {
-  font-size: 2.8rem;
+p { margin: 0 0 1.1em 0; }
+
+a { color: var(--azul); text-decoration: none; border-bottom: 1px solid rgba(44,107,184,.3); }
+a.uri { overflow-wrap: anywhere; word-break: break-word; }
+a:hover { color: var(--azul-osc); border-bottom-color: var(--azul-osc); text-decoration: none; }
+
+strong { color: var(--navy); font-weight: 700; }
+
+/* ---------- Encabezado tipo portada ---------- */
+#header {
+  position: relative;
+  margin: 0 -48px 36px -48px;
+  padding: 64px 48px 44px 48px;
+  background: var(--navy);
+  color: #FFFFFF;
+}
+
+#header::before {
+  content: "GESTIÓN DE DATOS  ·  APRENDIZAJE SUPERVISADO  ·  UNIVERSIDAD DEL VALLE";
+  display: block;
+  font-family: var(--titulos);
+  font-size: 12px;
   font-weight: 700;
-  text-align: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 3px double var(--gold);
-  letter-spacing: -0.5px;
-  color: var(--primary-red) !important;
+  letter-spacing: .14em;
+  color: #9CC3F0;
+  margin-bottom: 18px;
 }
 
-h2 {
-  font-size: 2.1rem;
-  border-left: 5px solid var(--accent-red);
-  padding-left: 1.2rem;
-  margin-top: 3.5rem;
-  background: linear-gradient(90deg, var(--light-red) 0%, transparent 100%);
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-  color: var(--secondary-red) !important;
+#header::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 6px;
+  background: linear-gradient(90deg,
+    #A2559C 0 16.6%, #00847E 16.6% 33.2%, #4C6A9C 33.2% 49.8%,
+    #E56E5A 49.8% 66.4%, #9A5129 66.4% 83%, #883039 83% 100%);
 }
 
-h3 {
-  font-size: 1.6rem;
-  color: var(--accent-red) !important;
-  border-bottom: 2px solid var(--light-red);
-  padding-bottom: 0.7rem;
-  margin-top: 2.5rem;
+#header h1.title {
+  font-family: var(--titulos);
+  font-weight: 800;
+  font-size: 44px;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  color: #FFFFFF;
+  margin: 0 0 16px 0;
+  max-width: 900px;
 }
 
-h4 {
-  font-size: 1.4rem;
-  color: var(--secondary-red) !important;
-  margin-top: 2rem;
-  font-weight: 600;
-}
-
-h5 {
-  font-size: 1.2rem;
-  color: var(--accent-red) !important;
-  margin-top: 1.5rem;
-}
-
-h6 {
-  font-size: 1.1rem;
-  color: var(--dark-red) !important;
-  margin-top: 1.5rem;
-  font-style: italic;
-}
-
-/* SUBTÍTULOS Y ELEMENTOS DE TEXTO */
-.subtitle {
-  color: var(--W) !important;
-  font-family: 'Source Serif Pro', serif;
-  font-size: 1.3rem;
-  text-align: center;
-  margin-bottom: 2rem;
-  font-weight: 400;
-}
-
-.caption {
-  color: var(--accent-red) !important;
-  font-family: 'Source Serif Pro', serif;
-  font-size: 0.95rem;
-  font-style: italic;
-  margin-top: 0.5rem;
-}
-
-
-
-
-/* HEADER ACADÉMICO */
-.page-header {
-  background: linear-gradient(135deg, var(--dark-red) 0%, var(--primary-red) 100%) !important;
-  color: white;
-  padding: 5rem 2rem !important;
-  text-align: center;
-  font-family: 'Playfair Display', serif;
-  border-bottom: 5px solid var(--gold);
-  margin-bottom: 3rem !important;
-}
-
-.page-header h1 {
-  color: white !important;
-  font-size: 3.3rem;
-  font-weight: 700;
-  border-bottom: none;
-  margin-bottom: 1rem;
-  text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
-  letter-spacing: -0.5px;
-}
-
-.page-header h2 {
-  color: rgba(255,255,255,0.95) !important;
-  font-size: 1.9rem;
+#header h3.subtitle {
+  font-family: var(--texto);
   font-weight: 300;
-  border-left: none;
-  padding-left: 0;
-  font-family: 'Source Serif Pro', serif;
-  background: none;
-  padding: 0;
+  font-size: 22px;
+  line-height: 1.4;
+  color: #D6E4F5;
+  margin: 0 0 26px 0;
+  max-width: 820px;
 }
 
-/* FOOTER ACADÉMICO */
-.academic-footer {
-  text-align: center;
-  color: var(--secondary-red);
-  margin-top: 5rem;
-  padding: 3rem 2rem;
-  border-top: 3px double var(--light-red);
-  font-family: 'Playfair Display', serif;
-  background: linear-gradient(135deg, var(--parchment) 0%, white 100%);
-  border-radius: 8px 8px 0 0;
+#header h4.author, #header h4.date {
+  font-family: var(--texto);
+  font-size: 14px;
+  font-weight: 400;
+  color: #B8C7DA;
+  text-transform: none;
+  letter-spacing: 0;
+  margin: 4px 0;
 }
 
-/* MEJORAS PARA GRÁFICOS */
-.plotly.html-widget {
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  padding: 1rem;
-  background: white;
+#header h4.author em, #header h4.date em { font-style: normal; }
+#header h4.author::before { content: "Autores  "; font-weight: 700; color: #FFFFFF; letter-spacing: .04em; }
+#header h4.date::before { content: "Publicado  "; font-weight: 700; color: #FFFFFF; letter-spacing: .04em; }
+
+/* ---------- Títulos de sección ---------- */
+h1, h2, h3, h4, h5 {
+  font-family: var(--titulos);
+  color: var(--navy);
+  letter-spacing: -.01em;
 }
 
-/* RESPONSIVE */
-@media (max-width: 768px) {
-  .main-content {
-    padding: 1rem;
-    margin: 0.5rem;
-  }
-  
-  h1 {
-    font-size: 2.2rem;
-  }
-  
-  h2 {
-    font-size: 1.8rem;
-  }
-  
-  .page-header {
-    padding: 3rem 1rem !important;
-  }
-  
-  .tocify {
-    width: 280px !important;
-  }
-  
-  .chunk-controls {
-    flex-direction: column;
-    gap: 0.5rem;
-    text-align: center;
-  }
+.section.level1 > h1 {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 64px 0 22px 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--linea);
+  position: relative;
 }
 
-/* Agrega esto al final de tu Sebastian-styles.css */
-
-/* SISTEMA DE TOGGLE PARA CÓDIGO */
-.code-toggle-container {
-  text-align: center;
-  margin: 2rem 0;
-  padding: 1.5rem;
-  background: var(--light-red);
-  border-radius: 10px;
-  border-left: 4px solid var(--accent-red);
-  box-shadow: 0 4px 12px rgba(179, 8, 56, 0.1);
+.section.level1 > h1::before {
+  content: "";
+  position: absolute;
+  top: -1px; left: 0;
+  width: 72px; height: 4px;
+  background: var(--azul);
 }
 
-.code-toggle-btn {
-  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
-  color: white;
-  border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(122, 28, 28, 0.3);
-  margin: 0 0.5rem;
-}
-
-.code-toggle-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 18px rgba(122, 28, 28, 0.4);
-  background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
-}
-
-/* CONTENEDORES DE CÓDIGO CON TOGGLE */
-.code-chunk {
-  margin: 2rem 0;
-  border: 2px solid var(--light-red);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  transition: all 0.3s ease;
-}
-
-.code-header {
-  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
-  color: white;
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.code-header:hover {
-  background: linear-gradient(135deg, var(--secondary-red), var(--primary-red));
-}
-
-.chunk-title {
-  font-family: 'Playfair Display', serif;
-  font-weight: 600;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.toggle-icon {
-  font-family: 'Source Serif Pro', serif;
+h1 .header-section-number,
+h2 .header-section-number,
+h3 .header-section-number {
+  display: block;
+  font-family: var(--titulos);
+  font-size: 12px;
   font-weight: 700;
-  font-size: 1.2rem;
-  transition: transform 0.3s ease;
+  letter-spacing: .14em;
+  color: var(--azul);
+  margin-bottom: 6px;
 }
 
-.toggle-icon.rotated {
-  transform: rotate(180deg);
-}
+h1 .header-section-number::before { content: "SECCIÓN "; }
+h2 .header-section-number::before, h3 .header-section-number::before { content: "§ "; }
 
-.code-content {
-  background: #1e1e1e;
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
+h2 { font-size: 24px; font-weight: 700; margin: 46px 0 14px 0; }
+h3 { font-size: 19px; font-weight: 700; margin: 34px 0 10px 0; color: var(--tinta); }
+h4 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
 
-.code-content.collapsed {
-  max-height: 0;
-  opacity: 0;
-}
-
-.code-content.expanded {
-  max-height: 5000px;
-  opacity: 1;
-}
-
-
-/* BOTÓN FLOTANTE GLOBAL */
-.global-code-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 10000;
-  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
-  color: white;
-  border: none;
-  padding: 0.8rem 1.2rem;
-  border-radius: 50px;
-  font-family: 'Playfair Display', serif;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(179, 8, 56, 0.4);
-  transition: all 0.3s ease;
-}
-
-.global-code-toggle:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(179, 8, 56, 0.6);
-}
-
-/* INDICADOR DE ESTADO */
-.code-status {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-.code-status.visible {
-  background: #4CAF50;
-}
-
-.code-status.hidden {
-  background: #ff9800;
-}
-* TOC - TABLA DE CONTENIDOS MEJORADA */
+/* ---------- Tabla de contenidos lateral ---------- */
 #TOC {
-  background: linear-gradient(135deg, var(--parchment) 0%, white 100%) !important;
-  border: 2px solid var(--light-red) !important;
-  border-radius: 12px !important;
-  padding: 2rem !important;
-  margin: 2rem 0 !important;
-  box-shadow: 0 4px 20px rgba(122, 28, 28, 0.1) !important;
-  font-family: 'Playfair Display', serif !important;
+  border: none;
+  background: transparent;
+  font-family: var(--texto);
+  font-size: 14px;
+  padding-top: 24px;
 }
 
 #TOC::before {
-  content: \"Tabla de Contenidos\";
+  content: "CONTENIDO";
   display: block;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.4rem;
+  font-family: var(--titulos);
+  font-size: 12px;
   font-weight: 700;
-  color: var(--primary-red);
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--gold);
+  letter-spacing: .14em;
+  color: var(--gris);
+  padding: 0 0 10px 16px;
 }
 
-#TOC ul {
-  list-style: none !important;
-  padding-left: 0 !important;
-  margin: 0 !important;
+.tocify { border: none; border-radius: 0; }
+.tocify ul, .tocify li { line-height: 1.35; }
+
+.list-group-item {
+  border: none;
+  border-left: 2px solid var(--linea);
+  background: transparent;
+  color: var(--gris);
+  padding: 7px 14px;
+  border-radius: 0 !important;
 }
 
-#TOC li {
-  margin: 0.8rem 0 !important;
-  padding: 0 !important;
-  border-left: 3px solid transparent;
-  transition: all 0.3s ease;
+.tocify-subheader .list-group-item { padding-left: 28px; font-size: 13px; }
+.tocify-subheader .tocify-subheader .list-group-item { padding-left: 40px; }
+
+.list-group-item:hover, .list-group-item:focus {
+  background: var(--celeste);
+  color: var(--navy);
 }
 
-#TOC li:hover {
-  border-left-color: var(--accent-red);
-  background: var(--light-red);
+.list-group-item.active,
+.list-group-item.active:hover,
+.list-group-item.active:focus {
+  background: transparent;
+  color: var(--navy);
+  font-weight: 700;
+  border-left: 2px solid var(--azul);
 }
 
-#TOC a {
-  color: var(--secondary-red) !important;
-  text-decoration: none !important;
-  font-family: 'Source Serif Pro', serif !important;
-  font-size: 1rem !important;
-  padding: 0.5rem 1rem !important;
-  display: block !important;
-  transition: all 0.3s ease !important;
+/* ---------- Bloques de contenido especiales ---------- */
+.lead-text p:first-child {
+  font-size: 21px;
+  line-height: 1.55;
+  color: var(--navy);
+  font-weight: 300;
+}
+
+.hallazgos {
+  background: #FFFFFF;
+  border: 1px solid var(--linea);
+  border-top: 4px solid var(--azul);
+  padding: 26px 30px 12px 30px;
+  margin: 8px 0 36px 0;
+}
+
+.hallazgos > p:first-child,
+.ficha > p:first-child,
+.respuesta > p:first-child {
+  font-family: var(--titulos);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--azul);
+  margin-bottom: 14px;
+}
+
+.hallazgos ul { padding-left: 0; list-style: none; margin-top: 18px; }
+.hallazgos li {
+  position: relative;
+  padding: 10px 0 10px 32px;
+  border-top: 1px solid var(--linea);
+}
+.hallazgos li::before {
+  content: "→";
+  position: absolute;
+  left: 4px; top: 10px;
+  color: var(--azul);
+  font-weight: 700;
+}
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0;
+  margin: 6px 0 4px 0;
+  border: 1px solid var(--linea);
+}
+
+.cifra {
+  padding: 16px 18px;
+  border-right: 1px solid var(--linea);
+  background: var(--fondo);
+}
+.cifra:last-child { border-right: none; }
+
+.cifra .valor {
+  display: block;
+  font-family: var(--titulos);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.cifra .etiqueta {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--gris);
+  margin-top: 6px;
+}
+
+.ficha {
+  background: var(--fondo);
+  border-left: 4px solid var(--navy);
+  padding: 20px 26px 8px 26px;
+  margin: 18px 0 28px 0;
+}
+
+.ficha table { width: 100%; font-size: 15px; margin-bottom: 12px; }
+.ficha td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--linea); vertical-align: top; }
+.ficha td:first-child { width: 28%; font-weight: 700; color: var(--navy); }
+
+.nota {
+  background: var(--celeste);
+  border-left: 4px solid var(--azul);
+  padding: 14px 20px;
+  margin: 18px 0 24px 0;
+  font-size: 15.5px;
+}
+.nota p:last-child { margin-bottom: 0; }
+
+.respuesta {
+  background: var(--navy);
+  color: #E4ECF6;
+  padding: 26px 30px 14px 30px;
+  margin: 24px 0 30px 0;
+}
+.respuesta > p:first-child { color: #9CC3F0; }
+.respuesta strong { color: #FFFFFF; }
+
+/* Listas numeradas con círculos */
+.toc-content ol { counter-reset: paso; list-style: none; padding-left: 0; }
+.toc-content ol > li {
+  counter-increment: paso;
+  position: relative;
+  padding: 2px 0 10px 44px;
+}
+.toc-content ol > li::before {
+  content: counter(paso);
+  position: absolute;
+  left: 0; top: 2px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--celeste);
+  color: var(--azul);
+  font-family: var(--titulos);
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
+  line-height: 28px;
+}
+
+.toc-content ul > li { margin-bottom: 6px; }
+.toc-content ul > li::marker { color: var(--azul); }
+
+/* ---------- Ecuaciones ---------- */
+.math.display { overflow-x: auto; }
+mjx-container[display="true"], .MathJax_Display { margin: 18px 0 !important; }
+
+/* ---------- Código ---------- */
+.code-folding-btn {
+  font-family: var(--titulos);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--azul) !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--linea) !important;
+  border-radius: 2px !important;
+  padding: 4px 10px !important;
+  margin: 6px 0 4px 0;
+  box-shadow: none !important;
+}
+.code-folding-btn span { display: none; }
+.code-folding-btn::after { content: "</> Ver código"; }
+.code-folding-btn[aria-expanded="true"]::after { content: "</> Ocultar código"; }
+.code-folding-btn:hover { background: var(--celeste) !important; }
+
+#rmd-source-code, .btn-group.pull-right .btn-default {
+  font-family: var(--titulos);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 2px;
+  border-color: var(--linea);
+  color: var(--navy);
+}
+
+pre, pre.sourceCode {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+  background: #0F1B2D;
+  color: #D8E1EC;
+  border: none;
   border-radius: 4px;
+  padding: 18px 20px;
 }
 
-#TOC a:hover {
-  color: var(--primary-red) !important;
-  background: var(--light-red) !important;
-  transform: translateX(5px);
+pre code, pre.sourceCode code { background: transparent; color: inherit; font-family: var(--mono); }
+
+code span.kw, code span.cf { color: #7FB3F5; font-weight: 600; }
+code span.fu { color: #F2C46D; }
+code span.st, code span.ch { color: #8BD3B0; }
+code span.dv, code span.fl, code span.cn { color: #F4A07A; }
+code span.co { color: #6F7F94; font-style: italic; }
+code span.ot, code span.op, code span.sp { color: #A9B6C6; }
+code span.va { color: #D8E1EC; }
+code span.at { color: #C9A7E0; }
+
+/* Salidas de consola (sin resaltar) */
+pre:not(.sourceCode) {
+  background: var(--fondo);
+  color: var(--tinta);
+  border: 1px dashed var(--linea);
 }
 
-#TOC ul ul {
-  padding-left: 1.5rem !important;
-  margin-top: 0.5rem !important;
+p code, li code {
+  font-family: var(--mono);
+  font-size: .86em;
+  color: var(--navy);
+  background: var(--celeste);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 
-#TOC ul ul a {
-  font-size: 0.95rem !important;
-  color: var(--dark-red) !important;
-  padding: 0.3rem 1rem !important;
+/* ---------- Tablas ---------- */
+.toc-content table.table {
+  font-family: var(--texto);
+  font-size: 14.5px;
+  border-collapse: collapse;
+  margin: 10px auto 30px auto;
+  font-variant-numeric: tabular-nums;
 }
 
-#TOC ul ul li {
-  margin: 0.5rem 0 !important;
+.toc-content table.table > caption {
+  caption-side: top;
+  text-align: left;
+  font-family: var(--titulos);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--navy);
+  padding: 0 0 10px 0;
 }
 
-/* ESTILOS PARA EL CÓDIGO - TEMA RSTUDIO (CLARO) */
-pre.sourceCode {
-  display: block !important;
-  background: var(--W) !important;
-  color: var(--gris-texto) !important;
-  padding: 15px !important;
-  border: none !important;
-  border-radius: 8px !important;
-  overflow-x: auto;
-  margin: 15px 0 !important;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
-  font-size: 0.85em;
-  line-height: 1.4;
-  border-left: 4px solid var(--primary-red) !important;
-  box-shadow: 0 2px 4px rgba(179, 25, 66, 0.1);
+.toc-content table.table > thead > tr > th {
+  font-family: var(--titulos);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--gris);
+  background: #FFFFFF;
+  border-top: none;
+  border-bottom: 2px solid var(--navy) !important;
+  padding: 10px 12px;
+  vertical-align: bottom;
 }
 
-
-pre.sourceCode code {
-  background: transparent !important;
-  color: #333 !important;
-  padding: 0 !important;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+.toc-content table.table > tbody > tr > td {
+  border-top: none;
+  border-bottom: 1px solid var(--linea);
+  padding: 9px 12px;
 }
 
+.toc-content table.table > tbody > tr:hover > td { background: var(--celeste); }
 
-pre.sourceCode code .kw { color: var(--primary-red); font-weight: bold; } /* Keywords */
-pre.sourceCode code .dt { color: var(--gold); } /* Data types */
-pre.sourceCode code .dv { color: var(--gold); } /* Numeric values */
-pre.sourceCode code .st { color: var(--secondary-red); } /* Strings */
-pre.sourceCode code .co { color: #666; font-style: italic; } /* Comments */
-pre.sourceCode code .ot { color: var(--primary-red); } /* Operators */
-pre.sourceCode code .fu { color: var(--primary-red); } /* Functions */
-pre.sourceCode code .va { color: var(--accent-red); } /* Variables */
-pre.sourceCode code .ident { color: var(--accent-red); } /* Identifiers */
-
-/* Estilo para números de línea si se requieren */
-pre.sourceCode .number {
-  color: var(--secondary-red);
-  font-weight: bold;
+.toc-content table.table > tfoot td {
+  font-size: 12.5px;
+  color: var(--gris);
+  border-top: 1px solid var(--linea);
+  padding-top: 10px;
+  text-align: left;
 }
 
-/* Scrollbar personalizado para el bloque de código */
-pre.sourceCode::-webkit-scrollbar {
-  height: 8px;
-  background-color: var(--W);
+/* ---------- Tabla interactiva (DT) ---------- */
+.dataTables_wrapper { font-family: var(--texto); font-size: 14px; }
+table.dataTable thead th {
+  font-family: var(--titulos);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: var(--navy) !important;
+  color: #FFFFFF !important;
+  border-bottom: none !important;
+}
+.dataTables_wrapper .dt-buttons .dt-button, .dataTables_wrapper button.dt-button {
+  font-family: var(--titulos);
+  font-size: 12px;
+  font-weight: 700;
+  background: #FFFFFF;
+  border: 1px solid var(--linea);
+  border-radius: 2px;
+  color: var(--navy);
 }
 
-pre.sourceCode::-webkit-scrollbar-thumb {
-  background-color: var(--gold);
-  border-radius: 4px;
+/* ---------- Gráficos ---------- */
+.html-widget.plotly {
+  max-width: 100%;
+  overflow: hidden;
+  background: #FFFFFF;
+  border: 1px solid var(--linea);
+  margin: 12px 0 30px 0;
 }
 
-pre.sourceCode::-webkit-scrollbar-thumb:hover {
-  background-color: var(--gold);
+/* ---------- Bibliografía ---------- */
+#bibliografia ul { list-style: none; padding-left: 0; }
+#bibliografia li {
+  padding: 8px 0 8px 28px;
+  text-indent: -28px;
+  border-bottom: 1px solid var(--linea);
+  font-size: 15px;
 }
 
-.main-content p {
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
-  margin-bottom: 1.2rem;
+/* ---------- Cita y pie de página ---------- */
+.cita {
+  border: 1px solid var(--linea);
+  background: var(--fondo);
+  padding: 20px 26px;
+  margin: 40px 0 0 0;
+  font-size: 14.5px;
+}
+.cita b.titulo-cita {
+  display: block;
+  font-family: var(--titulos);
+  font-size: 12px;
+  letter-spacing: .14em;
+  color: var(--gris);
+  margin-bottom: 8px;
 }
 
-/* ESTILOS PARA TABLAS ACADÉMICAS */
-.academic-table {
-  font-family: 'Source Serif Pro', serif !important;
-  border: 2px solid var(--light-red) !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-  box-shadow: 0 4px 20px rgba(122, 28, 28, 0.1) !important;
-  margin: 2rem auto !important;
+.pie {
+  margin: 48px -48px -48px -48px;
+  padding: 34px 48px;
+  background: var(--navy);
+  color: #B8C7DA;
+  font-size: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 22px;
+}
+.pie b { display: block; color: #FFFFFF; font-family: var(--titulos); font-size: 13px; letter-spacing: .06em; margin-bottom: 4px; }
+
+/* Barra de progreso de lectura */
+#barra-progreso {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: 0;
+  background: var(--ambar);
+  z-index: 9999;
 }
 
-.academic-table thead th {
-  font-family: 'Playfair Display', serif !important;
-  font-weight: 700 !important;
-  text-align: center !important;
-  padding: 1.2rem !important;
-  border-bottom: 3px solid var(--gold) !important;
+/* ---------- Pantallas pequeñas ---------- */
+@media (max-width: 767px) {
+  .toc-content { padding: 0 16px 32px 16px; }
+  #header { margin: 0 -16px 28px -16px; padding: 40px 16px 32px 16px; }
+  #header h1.title { font-size: 30px; }
+  #header h3.subtitle { font-size: 18px; }
+  .pie { margin: 40px -16px -32px -16px; padding: 28px 16px; }
+  .toc-content table.table { display: block; max-width: 100%; overflow-x: auto; }
+  .cifra { border-right: none; border-bottom: 1px solid var(--linea); }
 }
-
-.academic-table tbody tr {
-  transition: all 0.3s ease !important;
-}
-
-.academic-table tbody tr:hover {
-  background-color: var(--light-red) !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 4px 12px rgba(179, 8, 56, 0.1) !important;
-}
-
-.academic-table td {
-  padding: 1rem !important;
-  border-bottom: 1px solid var(--light-red) !important;
-  vertical-align: top !important;
-}
-
-.academic-table caption {
-  caption-side: top !important;
-  font-family: 'Playfair Display', serif !important;
-  font-weight: 700 !important;
-  color: var(--primary-red) !important;
-  font-size: 1.3rem !important;
-  margin-bottom: 1rem !important;
-  padding: 1rem !important;
-  background: linear-gradient(90deg, var(--light-red) 0%, transparent 100%) !important;
-  border-left: 5px solid var(--accent-red) !important;
-}
-
-/* Pie de tabla */
-.academic-table tfoot tr {
-  background: var(--parchment) !important;
-}
-
-.academic-table tfoot td {
-  border-top: 2px dashed var(--gold) !important;
-  font-style: italic !important;
-  color: var(--secondary-red) !important;
-  padding: 1rem !important;
-  text-align: center !important;
-}
-
-
-
-"
-
-writeLines(Sebastian_css, "Sebastian-styles.css")
 ```
+
 
 ```{r funciones auxiliares, include=FALSE}
 # Funciones de apoyo para mantener un estilo homogéneo en tablas y gráficos
@@ -763,13 +687,12 @@ tabla_estilo <- function(df, titulo, nota = fuente_datos, col.names = NA, align 
       escape = escape
     ) %>%
     kable_styling(
-      bootstrap_options = c("striped", "hover", "condensed"),
+      bootstrap_options = c("hover", "condensed"),
       full_width = FALSE,
       font_size = 14,
       position = "center"
     ) %>%
-    row_spec(0, background = "#990000", color = "white", bold = TRUE) %>%
-    column_spec(1, bold = TRUE) %>%
+    column_spec(1, bold = TRUE, color = PAL[["navy"]]) %>%
     footnote(
       general = nota,
       general_title = "Nota: ",
@@ -777,43 +700,71 @@ tabla_estilo <- function(df, titulo, nota = fuente_datos, col.names = NA, align 
     )
 }
 
-# Estilo común para los gráficos plotly
-estilo_plotly <- function(p, titulo, x_titulo = "", y_titulo = "", fuente = fuente_datos) {
+# Estilo común para los gráficos plotly: título y subtítulo alineados a la izquierda,
+# cuadrícula horizontal punteada, sin líneas de cero y fuente al pie (estilo Our World in Data)
+estilo_plotly <- function(p, titulo, x_titulo = "", y_titulo = "", fuente = fuente_datos, subtitulo = NULL) {
+  texto_titulo <- paste0("<b>", titulo, "</b>")
+  if (!is.null(subtitulo)) {
+    texto_titulo <- paste0(texto_titulo, "<br><span style='font-size:13px;color:", PAL[["gris"]], "'>", subtitulo, "</span>")
+  }
   p %>%
     layout(
       title = list(
-        text = paste0("<b>", titulo, "</b>"),
-        font = list(family = "Playfair Display", size = 20, color = SC[["primary_red"]]),
-        x = 0.05
+        text = texto_titulo,
+        font = list(family = fuente_titulos, size = 18, color = PAL[["tinta"]]),
+        x = 0.01, xanchor = "left", y = 0.97, yanchor = "top"
       ),
       xaxis = list(
-        title = list(text = x_titulo, font = list(family = "Playfair Display", size = 14, color = SC[["dark_red"]])),
-        gridcolor = SC[["light_red"]],
-        zerolinecolor = SC[["light_red"]]
+        title = list(text = x_titulo, font = list(family = fuente_texto, size = 13, color = PAL[["gris"]])),
+        showgrid = FALSE,
+        zeroline = FALSE,
+        showline = TRUE,
+        linecolor = PAL[["gris_claro"]],
+        ticks = "outside",
+        tickcolor = PAL[["gris_claro"]],
+        tickfont = list(color = PAL[["gris"]])
       ),
       yaxis = list(
-        title = list(text = y_titulo, font = list(family = "Playfair Display", size = 14, color = SC[["dark_red"]])),
-        gridcolor = SC[["light_red"]],
-        zerolinecolor = SC[["light_red"]]
+        title = list(text = y_titulo, font = list(family = fuente_texto, size = 13, color = PAL[["gris"]])),
+        gridcolor = PAL[["grid"]],
+        griddash = "dash",
+        zeroline = FALSE,
+        tickfont = list(color = PAL[["gris"]])
       ),
-      plot_bgcolor = SC[["parchment"]],
+      plot_bgcolor = "white",
       paper_bgcolor = "white",
-      font = list(family = "Source Serif Pro", size = 12),
-      legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = "center"),
-      margin = list(l = 80, r = 50, t = 80, b = 120),
+      font = list(family = fuente_texto, size = 12, color = PAL[["tinta"]]),
+      hoverlabel = list(bgcolor = "white", bordercolor = PAL[["grid"]], font = list(family = fuente_texto, color = PAL[["tinta"]])),
+      legend = list(orientation = "h", x = 0, xanchor = "left", y = -0.2, font = list(size = 12)),
+      margin = list(l = 70, r = 40, t = if (is.null(subtitulo)) 70 else 95, b = 130),
       annotations = list(
         list(
-          x = 1, y = -0.32, text = fuente, showarrow = FALSE,
-          xref = "paper", yref = "paper", xanchor = "right",
-          font = list(family = "Source Serif Pro", size = 10, color = SC[["secondary_red"]])
+          x = 0, y = -0.34, text = fuente, showarrow = FALSE,
+          xref = "paper", yref = "paper", xanchor = "left",
+          font = list(family = fuente_texto, size = 11, color = PAL[["gris"]])
         )
       )
     ) %>%
     config(
-      displayModeBar = TRUE,
-      modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d"),
+      displayModeBar = "hover",
+      modeBarButtonsToRemove = c("pan2d", "lasso2d", "select2d", "autoScale2d"),
       displaylogo = FALSE
     )
+}
+
+# Pie de fuente para los gráficos creados con ggplotly (se agrega sin borrar otras anotaciones)
+con_fuente <- function(p, y = -0.18, fuente = fuente_datos) {
+  p %>%
+    add_annotations(
+      x = 0, y = y, text = fuente, showarrow = FALSE,
+      xref = "paper", yref = "paper", xanchor = "left",
+      font = list(family = fuente_texto, size = 11, color = PAL[["gris"]])
+    ) %>%
+    layout(
+      font = list(family = fuente_texto, color = PAL[["tinta"]]),
+      hoverlabel = list(bgcolor = "white", bordercolor = PAL[["grid"]], font = list(family = fuente_texto))
+    ) %>%
+    config(displayModeBar = "hover", displaylogo = FALSE)
 }
 
 # Tabla con todas las métricas que entrega confusionMatrix()
@@ -874,14 +825,13 @@ tabla_metricas <- function(cm, titulo) {
   ) %>%
     kbl(caption = titulo, align = c("l", "l", "c")) %>%
     kable_styling(
-      bootstrap_options = c("striped", "hover", "condensed"),
+      bootstrap_options = c("hover", "condensed"),
       full_width = FALSE,
       font_size = 14,
       position = "center"
     ) %>%
-    row_spec(0, background = SC[["primary_red"]], color = "white", bold = TRUE) %>%
-    row_spec(c(1, 7, 8, 15), background = "#f9ebea") %>%
-    column_spec(1, bold = TRUE, width = "4cm") %>%
+    row_spec(c(1, 7, 8, 15), background = PAL[["celeste"]], bold = TRUE) %>%
+    column_spec(1, bold = TRUE, color = PAL[["navy"]], width = "4cm") %>%
     column_spec(2, width = "7cm") %>%
     column_spec(3, width = "2.5cm") %>%
     footnote(
@@ -891,37 +841,97 @@ tabla_metricas <- function(cm, titulo) {
     )
 }
 
-# Matriz de confusión con formato
+# Matriz de confusión con formato: la diagonal (aciertos) en azul y los errores en naranja
 tabla_confusion <- function(cm, titulo) {
   m <- cm$table
+  acierto <- function(x) cell_spec(x, bold = TRUE, color = PAL[["azul"]], background = PAL[["celeste"]])
+  error <- function(x) cell_spec(x, bold = TRUE, color = PAL[["naranja"]])
   data.frame(
     "Predicción" = c("No (acceso < 95%)", "Si (acceso >= 95%)"),
-    No = c(m["No", "No"], m["Si", "No"]),
-    Si = c(m["No", "Si"], m["Si", "Si"]),
+    No = c(acierto(m["No", "No"]), error(m["Si", "No"])),
+    Si = c(error(m["No", "Si"]), acierto(m["Si", "Si"])),
     check.names = FALSE
   ) %>%
-    kbl(caption = titulo, align = c("l", "c", "c"), col.names = c("Predicción", "No", "Si")) %>%
+    kbl(caption = titulo, align = c("l", "c", "c"), col.names = c("Predicción", "No", "Si"), escape = FALSE) %>%
     kable_styling(
-      bootstrap_options = c("basic"),
+      bootstrap_options = c("condensed"),
       full_width = FALSE,
-      font_size = 14,
+      font_size = 15,
       position = "center"
     ) %>%
-    add_header_above(c(" " = 1, "Valor Real" = 2), bold = TRUE, background = SC[["primary_red"]], color = "white") %>%
-    row_spec(0, background = SC[["dark_red"]], color = "white", bold = TRUE) %>%
-    row_spec(1:2, background = SC[["parchment"]]) %>%
-    column_spec(1, bold = TRUE, width = "5cm", background = SC[["light_red"]]) %>%
+    add_header_above(c(" " = 1, "Valor real" = 2), bold = TRUE, color = PAL[["navy"]]) %>%
+    column_spec(1, bold = TRUE, color = PAL[["navy"]], width = "5cm") %>%
+    column_spec(2:3, width = "3cm") %>%
     footnote(
-      general = "Los valores en la diagonal representan las clasificaciones correctas.",
+      general = "En azul, la diagonal con las clasificaciones correctas; en naranja, los errores.",
       general_title = "Nota: ",
       footnote_as_chunk = TRUE
     )
 }
 ```
 
-# Introducción {.page-header}
+```{r preparacion, include = FALSE}
+electricidad_raw <- read_csv("access-to-electricity-vs-gdp-per-capita.csv", show_col_types = FALSE)
+wdi_raw <- read_csv("variables-adicionales-wdi.csv", show_col_types = FALSE)
 
-::: academic-card
+Base_datos <- electricidad_raw %>%
+  rename(
+    Pais = Entity,
+    Codigo = Code,
+    Año = Year,
+    Acceso = `Share with access to electricity`,
+    PIB_pc = `GDP per capita`,
+    Region = `World region according to OWID`
+  ) %>%
+  filter(!str_starts(Codigo, "OWID"), between(Año, 2000, 2022)) %>%
+  inner_join(wdi_raw, by = c("Codigo" = "Code", "Año" = "Year")) %>%
+  drop_na() %>%
+  mutate(
+    Region = fct_recode(
+      factor(Region),
+      "África" = "Africa",
+      "Europa" = "Europe",
+      "Norteamérica" = "North America",
+      "Oceanía" = "Oceania",
+      "Sudamérica" = "South America"
+    ),
+    Region = fct_relevel(Region, "África"),
+    Litoral = factor(Litoral, levels = c("Con litoral", "Sin litoral")),
+    Acceso_95 = factor(if_else(Acceso >= 95, "Si", "No"), levels = c("No", "Si")),
+    Y = as.integer(Acceso_95 == "Si"),
+    log_PIB = log(PIB_pc),
+    log_Densidad = log(Densidad)
+  ) %>%
+  arrange(Pais, Año)
+```
+
+```{r cifras clave, include = FALSE}
+pct_2000 <- Base_datos %>% filter(Año == 2000) %>% summarise(m = mean(Y)) %>% pull(m)
+pct_2022 <- Base_datos %>% filter(Año == 2022) %>% summarise(m = mean(Y)) %>% pull(m)
+pct_africa <- Base_datos %>% filter(Region == "África") %>% summarise(m = mean(Y)) %>% pull(m)
+pct_europa <- Base_datos %>% filter(Region == "Europa") %>% summarise(m = mean(Y)) %>% pull(m)
+pc <- function(x) percent(x, accuracy = 1)
+```
+
+::: hallazgos
+Hallazgos clave
+
+<div class="cifras">
+<div class="cifra"><span class="valor">`r num(nrow(Base_datos))`</span><span class="etiqueta">observaciones país-año analizadas</span></div>
+<div class="cifra"><span class="valor">`r n_distinct(Base_datos$Codigo)`</span><span class="etiqueta">países entre `r min(Base_datos$Año)` y `r max(Base_datos$Año)`</span></div>
+<div class="cifra"><span class="valor">`r pc(pct_2000)` → `r pc(pct_2022)`</span><span class="etiqueta">países con acceso >= 95% en 2000 y en 2022</span></div>
+<div class="cifra"><span class="valor">`r pc(pct_africa)`</span><span class="etiqueta">de las observaciones de África tienen acceso universal (Europa: `r pc(pct_europa)`)</span></div>
+</div>
+
+-   **El ingreso es la frontera principal.** Por encima de unos USD 10.000-15.000 per cápita casi todos los países superan el 95% de cobertura; por debajo de USD 5.000 casi ninguno lo logra.
+-   **La brecha es africana y rural.** Los países sin acceso universal tienen, en promedio, menos población urbana, el triple de participación de la agricultura en el PIB y el doble de fecundidad.
+-   **Los modelos aciertan cerca de 9 de cada 10 veces** al clasificar países que nunca vieron en el entrenamiento; el Logit obtiene el mayor AUC y además permite interpretar el efecto de cada variable.
+-   **Hay historias que los datos estructurales no explican**, como Marruecos o Tayikistán, que alcanzaron coberturas cercanas al 100% con ingresos bajos o medios.
+:::
+
+# Introducción
+
+::: lead-text
 El acceso a la electricidad es una de las condiciones materiales más básicas para el desarrollo humano.
 Sin energía eléctrica no es posible refrigerar vacunas y alimentos, iluminar las aulas y los hogares en la noche, bombear agua potable, conectar a la población a internet ni sostener actividades productivas más allá de la agricultura de subsistencia.
 Por esta razón, la Agenda 2030 de las Naciones Unidas incluyó dentro del Objetivo de Desarrollo Sostenible 7 (ODS 7) la meta 7.1: *"garantizar el acceso universal a servicios energéticos asequibles, fiables y modernos"* para el año 2030.
@@ -937,12 +947,29 @@ En primer lugar, permite identificar cuáles características estructurales de u
 En segundo lugar, un modelo de clasificación bien calibrado puede usarse como herramienta de alerta: países que el modelo "espera" con acceso universal pero que aún no lo tienen revelan brechas de gestión o de infraestructura que no se explican por sus condiciones estructurales.
 Finalmente, el ejercicio permite comparar dos aproximaciones de aprendizaje supervisado: una paramétrica e interpretable, la **regresión logística (Logit)**, y una no paramétrica basada en distancias, los **K vecinos más cercanos (KNN)**.
 
-El objetivo de este estudio es **desarrollar y comparar modelos de clasificación supervisada (KNN y Logit) que permitan predecir si un país cuenta con acceso a la electricidad para al menos el 95% de su población, a partir de un conjunto de variables económicas, demográficas y geográficas**, y evaluar cuál de los dos modelos resulta más adecuado para este problema.
+:::
+
+::: nota
+**Objetivo.** Desarrollar y comparar modelos de clasificación supervisada (KNN y Logit) que permitan predecir si un país cuenta con acceso a la electricidad para al menos el 95% de su población, a partir de un conjunto de variables económicas, demográficas y geográficas, y evaluar cuál de los dos modelos resulta más adecuado para este problema.
 :::
 
 # Metodología
 
-::: academic-card
+::: ficha
+Ficha técnica
+
+| | |
+|:--|:--|
+| **Unidad de análisis** | País-año |
+| **Cobertura** | `r n_distinct(Base_datos$Codigo)` países, 2000-2022 (`r num(nrow(Base_datos))` observaciones) |
+| **Variable dependiente** | Acceso a la electricidad >= 95% de la población (1 = Si, 0 = No) |
+| **Variables explicativas** | PIB per cápita, población urbana, densidad, agricultura (% PIB), fecundidad, crecimiento poblacional, región y litoral |
+| **Fuentes** | Our World in Data, Banco Mundial (WDI) y Gapminder |
+| **Modelos** | KNN (paquetes class y caret) y regresión logística (glm) |
+| **Validación** | Partición 75/25 por países y validación cruzada de 5 pliegues agrupada por país |
+| **Métricas** | Exactitud, Kappa, sensibilidad, especificidad, F1, AUC, Brier, pruebas de DeLong y McNemar |
+:::
+
 El estudio adopta un enfoque de aprendizaje supervisado orientado a la clasificación binaria del acceso universal a la electricidad (Sí/No), implementado mediante dos familias de algoritmos: K vecinos más cercanos (KNN) y regresión logística (Logit).
 La metodología se estructuró en cinco etapas que garantizan la reproducibilidad, validez y comparabilidad de los resultados.
 
@@ -1001,7 +1028,6 @@ El umbral de clasificación se seleccionó con el índice de Youden ($J = \text{
 
 Ambos modelos se evaluaron en el conjunto de prueba mediante la matriz de confusión y sus métricas derivadas (exactitud, Kappa, sensibilidad, especificidad, valores predictivos, F1 y exactitud balanceada), el AUC de la curva ROC y el puntaje de Brier.
 Adicionalmente, se contrastaron estadísticamente las diferencias entre modelos con la prueba de DeLong (para el AUC) y la prueba de McNemar (para los aciertos y errores pareados).
-:::
 
 ## Definición de las variables
 
@@ -1091,14 +1117,13 @@ tabla_variables <- kable(
   caption = "Tabla 1. Variables utilizadas en el modelo de acceso universal a la electricidad"
 ) %>%
   kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
+    bootstrap_options = c("hover", "condensed"),
     full_width = FALSE,
     font_size = 14,
     position = "center"
   ) %>%
-  row_spec(0, background = "#990000", color = "white", bold = TRUE) %>%
-  row_spec(1:9, background = "#FFFDF5") %>%
-  column_spec(1, bold = TRUE, width = "3cm") %>%
+  row_spec(1, background = PAL[["celeste"]]) %>%
+  column_spec(1, bold = TRUE, color = PAL[["navy"]], width = "3cm") %>%
   column_spec(2, width = "6cm") %>%
   column_spec(3, width = "3cm") %>%
   column_spec(4, width = "3.5cm") %>%
@@ -1113,40 +1138,10 @@ tabla_variables
 
 ## Base de datos
 
-```{r Base de datos, warning = FALSE, message = FALSE}
-electricidad_raw <- read_csv("access-to-electricity-vs-gdp-per-capita.csv", show_col_types = FALSE)
-wdi_raw <- read_csv("variables-adicionales-wdi.csv", show_col_types = FALSE)
+```{r Base de datos, ref.label = "preparacion", eval = FALSE}
+```
 
-Base_datos <- electricidad_raw %>%
-  rename(
-    Pais = Entity,
-    Codigo = Code,
-    Año = Year,
-    Acceso = `Share with access to electricity`,
-    PIB_pc = `GDP per capita`,
-    Region = `World region according to OWID`
-  ) %>%
-  filter(!str_starts(Codigo, "OWID"), between(Año, 2000, 2022)) %>%
-  inner_join(wdi_raw, by = c("Codigo" = "Code", "Año" = "Year")) %>%
-  drop_na() %>%
-  mutate(
-    Region = fct_recode(
-      factor(Region),
-      "África" = "Africa",
-      "Europa" = "Europe",
-      "Norteamérica" = "North America",
-      "Oceanía" = "Oceania",
-      "Sudamérica" = "South America"
-    ),
-    Region = fct_relevel(Region, "África"),
-    Litoral = factor(Litoral, levels = c("Con litoral", "Sin litoral")),
-    Acceso_95 = factor(if_else(Acceso >= 95, "Si", "No"), levels = c("No", "Si")),
-    Y = as.integer(Acceso_95 == "Si"),
-    log_PIB = log(PIB_pc),
-    log_Densidad = log(Densidad)
-  ) %>%
-  arrange(Pais, Año)
-
+```{r tabla interactiva}
 tabla_interactiva <- Base_datos %>%
   select(Pais, Año, Region, Litoral, Acceso, Acceso_95, PIB_pc, Urbano, Densidad,
          Agricultura, Fertilidad, Crec_poblacion) %>%
@@ -1170,7 +1165,7 @@ tabla_interactiva <- Base_datos %>%
       )
     ),
     caption = htmltools::tags$caption(
-      style = 'caption-side: top; text-align: center; color: #FF0000; font-family: "Playfair Display"; font-size: 1.3rem; font-weight: bold;',
+      style = 'caption-side: top; text-align: left; color: #0B2545; font-family: "Libre Franklin", sans-serif; font-size: 16px; font-weight: 700; padding-bottom: 10px;',
       'Tabla 2. Base de datos de acceso a la electricidad por país y año (2000-2022)'
     ),
     class = 'row-border stripe hover order-column',
@@ -1181,34 +1176,15 @@ tabla_interactiva <- Base_datos %>%
   formatRound(columns = c('Acceso', 'Urbano', 'Densidad', 'Agricultura', 'Fertilidad', 'Crec_poblacion'), digits = 2) %>%
   formatStyle(
     'Acceso_95',
-    target = 'row',
-    backgroundColor = styleEqual('No', '#FFE6E6')
-  ) %>%
-  formatStyle(
-    'Acceso_95',
-    backgroundColor = styleEqual('No', '#FF6B6B'),
-    color = styleEqual('No', 'white'),
-    fontWeight = styleEqual('No', 'bold')
+    color = styleEqual(c('No', 'Si'), c(PAL[["naranja"]], PAL[["azul"]])),
+    fontWeight = 'bold'
   ) %>%
   formatStyle(
     'Acceso',
-    backgroundColor = styleInterval(
-      cuts = c(50, 95),
-      values = c('#FF6B6B', '#FFD8D8', 'white')
-    )
-  )
-
-tabla_interactiva <- tabla_interactiva %>%
-  htmlwidgets::prependContent(
-    htmltools::tags$style(
-      htmltools::HTML("
-        table.dataTable thead th {
-          background-color: #FF0000 !important;
-          color: white !important;
-          font-weight: bold !important;
-        }
-      ")
-    )
+    background = styleColorBar(c(0, 100), '#D6E4F5'),
+    backgroundSize = '95% 70%',
+    backgroundRepeat = 'no-repeat',
+    backgroundPosition = 'center'
   )
 
 tabla_interactiva
@@ -1285,17 +1261,19 @@ plot_ly(
   x = ~Etiqueta,
   y = ~n,
   type = "bar",
-  marker = list(color = c(SC[["light_red"]], SC[["primary_red"]]), line = list(color = SC[["dark_red"]], width = 1.5)),
+  marker = list(color = unname(col_acceso)),
   text = ~paste0(num(n), " (", percent(Proporcion, accuracy = 0.1), ")"),
   textposition = "outside",
+  textfont = list(family = fuente_titulos, size = 14, color = PAL[["tinta"]]),
   hovertemplate = "%{x}<br>Observaciones: %{y}<extra></extra>"
 ) %>%
   estilo_plotly(
-    "Figura 1. Distribución de la variable dependiente (Acceso >= 95%)",
-    "Acceso a la electricidad",
-    "Número de observaciones país-año"
+    "Figura 1. Distribución de la variable dependiente",
+    "",
+    "Observaciones país-año",
+    subtitulo = "Número de observaciones según si el país tiene acceso a la electricidad para al menos el 95% de su población"
   ) %>%
-  layout(yaxis = list(range = c(0, max(dist_y$n) * 1.2)))
+  layout(yaxis = list(range = c(0, max(dist_y$n) * 1.2)), bargap = 0.45, showlegend = FALSE)
 ```
 
 La Figura 1 muestra que `r num(dist_y$n[2])` observaciones (`r percent(dist_y$Proporcion[2], accuracy = 0.1)`) corresponden a países con acceso universal, frente a `r num(dist_y$n[1])` (`r percent(dist_y$Proporcion[1], accuracy = 0.1)`) que no lo alcanzan.
@@ -1313,10 +1291,7 @@ evolucion_mundo <- Base_datos %>%
   summarise(Porcentaje = mean(Y) * 100, Paises = n(), .groups = "drop") %>%
   mutate(Region = "Total mundial")
 
-colores_region <- c(
-  "África" = "#990000", "Asia" = "#FF3333", "Europa" = "#FFD100",
-  "Norteamérica" = "#CC0000", "Oceanía" = "#FF9999", "Sudamérica" = "#666666"
-)
+colores_region <- col_region
 
 plot_ly() %>%
   add_lines(
@@ -1328,14 +1303,15 @@ plot_ly() %>%
   ) %>%
   add_lines(
     data = evolucion_mundo, x = ~Año, y = ~Porcentaje, name = "Total mundial",
-    line = list(color = "black", width = 4, dash = "dash"),
+    line = list(color = PAL[["tinta"]], width = 3.5, dash = "dot"),
     text = ~paste0("<b>Total mundial</b><br>Año: ", Año, "<br>Países con acceso >= 95%: ", round(Porcentaje, 1), "%"),
     hoverinfo = "text"
   ) %>%
   estilo_plotly(
-    "Figura 2. Porcentaje de países con acceso >= 95% por región (2000-2022)",
-    "Año",
-    "% de países con acceso universal"
+    "Figura 2. Porcentaje de países con acceso universal a la electricidad, por región",
+    "",
+    "",
+    subtitulo = "Proporción de países de cada región con acceso a la electricidad >= 95% de la población, 2000-2022"
   ) %>%
   layout(yaxis = list(ticksuffix = "%", range = c(0, 105)))
 ```
@@ -1368,28 +1344,30 @@ Base_datos %>%
     ids = ~Pais,
     type = "scatter",
     mode = "markers",
-    marker = list(opacity = 0.75, line = list(color = "white", width = 0.5)),
+    marker = list(opacity = 0.8, line = list(color = "white", width = 0.6)),
     text = ~paste0("<b>", Pais, "</b><br>PIB pc: ", dollar(PIB_pc, accuracy = 1),
                    "<br>Acceso: ", round(Acceso, 1), "%<br>Población urbana: ", round(Urbano, 1), "%"),
     hoverinfo = "text"
   ) %>%
   estilo_plotly(
-    "Figura 3. PIB per cápita vs. acceso a la electricidad (animación 2000-2022)",
-    "PIB per cápita (USD PPA, escala logarítmica)",
-    "Acceso a la electricidad (%)"
+    "Figura 3. Acceso a la electricidad vs. PIB per cápita",
+    "PIB per cápita (USD internacionales de 2021, escala logarítmica)",
+    "",
+    subtitulo = "Porcentaje de la población con acceso a la electricidad. El tamaño de la burbuja indica el % de población urbana. Presione Play."
   ) %>%
   layout(
     xaxis = list(type = "log"),
     yaxis = list(range = c(0, 105), ticksuffix = "%"),
     shapes = list(list(
       type = "line", xref = "paper", x0 = 0, x1 = 1, y0 = 95, y1 = 95,
-      line = list(color = SC[["gold"]], dash = "dash", width = 2)
+      line = list(color = PAL[["ambar"]], dash = "dash", width = 2)
     )),
     legend = list(orientation = "v", x = 1.02, y = 1, xanchor = "left"),
     margin = list(b = 160, r = 140)
   ) %>%
   animation_opts(frame = 600, transition = 300, redraw = FALSE) %>%
-  animation_slider(currentvalue = list(prefix = "Año: ", font = list(color = SC[["dark_red"]])))
+  animation_slider(currentvalue = list(prefix = "Año: ", font = list(family = fuente_titulos, size = 16, color = PAL[["navy"]]))) %>%
+  animation_button(bgcolor = PAL[["navy"]], font = list(color = "white"), bordercolor = PAL[["navy"]])
 ```
 
 La Figura 3 es un gráfico dinámico (presione *Play* o mueva el deslizador) que relaciona el PIB per cápita (en escala logarítmica) con el porcentaje de acceso a la electricidad; el tamaño de cada burbuja representa el porcentaje de población urbana y la línea amarilla discontinua marca el umbral del 95% que define la variable dependiente.
@@ -1443,20 +1421,20 @@ p_box <- Base_datos %>%
   pivot_longer(all_of(names(etiquetas_vars)), names_to = "Variable", values_to = "Valor") %>%
   mutate(Variable = factor(etiquetas_vars[Variable], levels = etiquetas_vars)) %>%
   ggplot(aes(x = Acceso_95, y = Valor, fill = Acceso_95)) +
-  geom_boxplot(alpha = 0.85, outlier.alpha = 0.3, outlier.size = 0.8, color = SC[["dark_red"]]) +
+  geom_boxplot(alpha = 0.9, outlier.alpha = 0.25, outlier.size = 0.7, color = PAL[["tinta"]], linewidth = 0.4, width = 0.6) +
   facet_wrap(~Variable, scales = "free_y", ncol = 3) +
-  scale_fill_manual(values = c("No" = SC[["light_red"]], "Si" = SC[["primary_red"]]), name = "Acceso >= 95%") +
+  scale_fill_manual(values = col_acceso, name = "Acceso >= 95%") +
   labs(
     title = "Figura 4. Variables cuantitativas según el acceso a la electricidad",
     x = "Acceso >= 95%",
     y = NULL
   ) +
-  TS() +
+  tema_datos() +
   theme(legend.position = "none")
 
 ggplotly(p_box) %>%
-  layout(margin = list(t = 80)) %>%
-  config(displaylogo = FALSE)
+  layout(margin = list(t = 80, b = 90)) %>%
+  con_fuente(y = -0.12)
 ```
 
 La Tabla 4 y la Figura 4 permiten identificar con claridad cuáles variables separan a los dos grupos.
@@ -1471,19 +1449,19 @@ Todas las diferencias son estadísticamente significativas según la prueba de W
 ```{r Grafica 5}
 p_dens <- Base_datos %>%
   ggplot(aes(x = PIB_pc, fill = Acceso_95)) +
-  geom_density(alpha = 0.6, color = SC[["dark_red"]]) +
+  geom_density(alpha = 0.55, color = "white", linewidth = 0.6) +
   scale_x_log10(labels = dollar_format(accuracy = 1)) +
-  scale_fill_manual(values = c("No" = SC[["gold"]], "Si" = SC[["primary_red"]]), name = "Acceso >= 95%") +
+  scale_fill_manual(values = col_acceso, name = "Acceso >= 95%") +
   labs(
     title = "Figura 5. Densidad del PIB per cápita según el acceso",
     x = "PIB per cápita (USD PPA, escala log)",
     y = "Densidad"
   ) +
-  TS()
+  tema_datos()
 
 ggplotly(p_dens) %>%
-  layout(legend = list(orientation = "h", x = 0.5, y = -0.3, xanchor = "center"), margin = list(b = 120)) %>%
-  config(displaylogo = FALSE)
+  layout(legend = list(orientation = "h", x = 0, xanchor = "left", y = 1.02, yanchor = "bottom"), margin = list(t = 90, b = 120)) %>%
+  con_fuente(y = -0.3)
 ```
 
 La Figura 5 muestra que las distribuciones del PIB per cápita de ambos grupos tienen formas aproximadamente normales en escala logarítmica, con modas claramente separadas.
@@ -1528,16 +1506,18 @@ plot_ly(
   x = ~Region,
   y = ~Porcentaje,
   color = ~Acceso_95,
-  colors = c("No" = SC[["light_red"]], "Si" = SC[["primary_red"]]),
+  colors = col_acceso,
   type = "bar",
   text = ~paste0(round(Porcentaje, 1), "%"),
   textposition = "inside",
+  insidetextfont = list(color = "white", family = fuente_titulos),
   hovertemplate = "%{x}<br>%{y:.1f}% de las observaciones<extra></extra>"
 ) %>%
   estilo_plotly(
     "Figura 6. Composición del acceso a la electricidad por región",
-    "Región",
-    "% de observaciones país-año"
+    "",
+    "",
+    subtitulo = "Porcentaje de observaciones país-año con y sin acceso >= 95%, 2000-2022"
   ) %>%
   layout(barmode = "stack", yaxis = list(ticksuffix = "%"))
 ```
@@ -1559,7 +1539,7 @@ plot_ly(
   x = ~Litoral,
   y = ~Porcentaje,
   color = ~Acceso_95,
-  colors = c("No" = SC[["gold"]], "Si" = SC[["primary_red"]]),
+  colors = col_acceso,
   type = "bar",
   text = ~paste0(round(Porcentaje, 1), "% (n = ", n, ")"),
   textposition = "auto",
@@ -1568,7 +1548,8 @@ plot_ly(
   estilo_plotly(
     "Figura 7. Acceso a la electricidad según la condición de litoral",
     "",
-    "% de observaciones país-año"
+    "",
+    subtitulo = "Porcentaje de observaciones país-año con y sin acceso >= 95%"
   ) %>%
   layout(barmode = "group", yaxis = list(ticksuffix = "%", range = c(0, 100)))
 ```
@@ -1601,14 +1582,14 @@ p_cor <- ggcorrplot(
   type = "lower",
   lab = TRUE,
   lab_size = 3.5,
-  colors = c(SC[["gold"]], "white", SC[["primary_red"]]),
+  colors = c(PAL[["naranja"]], "white", PAL[["azul"]]),
   outline.color = "white"
 ) +
-  labs(title = "Figura 8. Matriz de correlaciones") +
-  TS() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title = element_blank())
+  labs(title = "Figura 8. Matriz de correlaciones de Pearson") +
+  tema_datos() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title = element_blank(), panel.grid.major.y = element_blank())
 
-ggplotly(p_cor) %>% config(displaylogo = FALSE)
+ggplotly(p_cor) %>% layout(margin = list(b = 150)) %>% con_fuente(y = -0.33)
 ```
 
 ```{r texto correlacion, include=FALSE}
@@ -1726,26 +1707,27 @@ prob_knn_class <- ifelse(pred_knn == "Si", prob_voto, 1 - prob_voto)
 plot_ly(resultado, x = ~k) %>%
   add_lines(
     y = ~precision,
-    line = list(color = SC[["primary_red"]], width = 3, shape = "spline"),
+    line = list(color = PAL[["teal"]], width = 2.5, shape = "spline"),
     name = "Exactitud",
     hovertemplate = "k = %{x}<br>Exactitud = %{y:.3f}<extra></extra>"
   ) %>%
   add_markers(
     y = ~precision,
-    marker = list(size = 6, color = SC[["accent_red"]], line = list(color = "white", width = 1)),
+    marker = list(size = 5, color = PAL[["teal"]], line = list(color = "white", width = 1)),
     showlegend = FALSE,
     hovertemplate = "k = %{x}<br>Exactitud = %{y:.3f}<extra></extra>"
   ) %>%
   add_segments(
     x = k_optimo, xend = k_optimo,
     y = min(resultado$precision), yend = max(resultado$precision),
-    line = list(color = SC[["gold"]], width = 2.5, dash = "dash"),
+    line = list(color = PAL[["ambar"]], width = 2.5, dash = "dash"),
     name = paste("k óptimo =", k_optimo)
   ) %>%
   estilo_plotly(
-    "Figura 9. Exactitud del modelo KNN (class) según el número de vecinos (k)",
+    "Figura 9. Exactitud del modelo KNN (class) según el número de vecinos",
     "Número de vecinos (k)",
-    "Exactitud en el conjunto de prueba"
+    "",
+    subtitulo = "Proporción de observaciones bien clasificadas en el conjunto de prueba para k = 1, ..., 100"
   ) %>%
   layout(yaxis = list(tickformat = ".1%"))
 ```
@@ -1813,26 +1795,27 @@ pred_prob_knn  <- predict(modelo_knn, newdata = test, type = "prob")
 plot_ly(modelo_knn$results, x = ~k) %>%
   add_ribbons(
     ymin = ~ROC - ROCSD, ymax = ~ROC + ROCSD,
-    fillcolor = "rgba(255,51,51,0.15)", line = list(color = "transparent"),
+    fillcolor = "rgba(0,132,126,0.12)", line = list(color = "transparent"),
     name = "± 1 desv. estándar", hoverinfo = "none"
   ) %>%
   add_lines(
     y = ~ROC,
-    line = list(color = SC[["primary_red"]], width = 3, shape = "spline"),
+    line = list(color = PAL[["teal"]], width = 2.5, shape = "spline"),
     name = "AUC (validación cruzada)",
     hovertemplate = "k = %{x}<br>AUC = %{y:.4f}<extra></extra>"
   ) %>%
   add_markers(
     x = modelo_knn$bestTune$k,
     y = max(modelo_knn$results$ROC),
-    marker = list(size = 14, color = SC[["gold"]], line = list(color = SC[["dark_red"]], width = 2)),
+    marker = list(size = 13, color = PAL[["ambar"]], line = list(color = PAL[["navy"]], width = 2)),
     name = paste("k óptimo =", modelo_knn$bestTune$k),
     hovertemplate = "k óptimo = %{x}<br>AUC = %{y:.4f}<extra></extra>"
   ) %>%
   estilo_plotly(
-    "Figura 10. AUC del modelo KNN (caret) según k - validación cruzada por países",
+    "Figura 10. AUC del modelo KNN (caret) según el número de vecinos",
     "Número de vecinos (k)",
-    "AUC promedio (5 pliegues)"
+    "",
+    subtitulo = "Promedio del AUC en validación cruzada de 5 pliegues agrupada por país; la banda indica ± 1 desviación estándar"
   )
 ```
 
@@ -1947,14 +1930,14 @@ tabla_logit_final %>%
     align = c("l", "r", "r", "r", "r", "c", "r", "c")
   ) %>%
   kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
+    bootstrap_options = c("hover", "condensed"),
     full_width = FALSE,
-    font_size = 13,
+    font_size = 14,
     position = "center"
   ) %>%
-  row_spec(0, background = "#ff0000", color = "white", bold = TRUE) %>%
-  row_spec(which(tabla_logit_final$p.value < 0.05), background = "#f2d7d5") %>%
-  column_spec(1, bold = TRUE, width = "4cm") %>%
+  row_spec(which(tabla_logit_final$p.value >= 0.05), color = PAL[["gris_claro"]]) %>%
+  column_spec(1, bold = TRUE, color = PAL[["navy"]], width = "4cm") %>%
+  column_spec(7, bold = TRUE, color = ifelse(tabla_logit_final$OR > 1, PAL[["azul"]], PAL[["naranja"]])) %>%
   footnote(
     general = paste0(
       "Variable dependiente: Acceso >= 95% (1 = Si). Categorías base: África y Con litoral. ",
@@ -1962,7 +1945,7 @@ tabla_logit_final %>%
       "; Deviance residual = ", round(fit_logit$deviance, 1),
       "; AIC = ", round(AIC(fit_logit), 1),
       "; Pseudo R² de McFadden = ", round(pseudo_r2, 3),
-      ". Significancia: *** p<0.001, ** p<0.01, * p<0.05, . p<0.1"
+      ". Significancia: *** p<0.001, ** p<0.01, * p<0.05, . p<0.1. Las filas en gris no son significativas al 5%; los OR en azul aumentan la probabilidad y en naranja la disminuyen."
     ),
     general_title = "Nota: ",
     footnote_as_chunk = TRUE
@@ -2001,22 +1984,23 @@ p_forest <- tabla_logit_final %>%
   ggplot(aes(x = OR, y = Variable, color = Efecto,
              text = paste0(Variable, "<br>OR = ", round(OR, 3),
                            "<br>IC 95%: [", round(IC_inf, 3), " ; ", round(IC_sup, 3), "]"))) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
-  geom_errorbarh(aes(xmin = IC_inf, xmax = IC_sup), height = 0.25, linewidth = 0.8) +
-  geom_point(size = 3) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = PAL[["gris"]]) +
+  geom_errorbarh(aes(xmin = IC_inf, xmax = IC_sup), height = 0, linewidth = 1) +
+  geom_point(size = 3.2) +
   scale_x_log10() +
-  scale_color_manual(values = c("Aumenta la probabilidad" = SC[["primary_red"]], "Disminuye la probabilidad" = SC[["gold"]])) +
+  scale_color_manual(values = c("Aumenta la probabilidad" = PAL[["azul"]], "Disminuye la probabilidad" = PAL[["naranja"]])) +
   labs(
     title = "Figura 11. Odds ratios del modelo Logit (IC 95%)",
     x = "Odds ratio (escala logarítmica)",
     y = NULL,
     color = NULL
   ) +
-  TS()
+  tema_datos() +
+  theme(panel.grid.major.y = element_blank(), panel.grid.major.x = element_line(color = PAL[["grid"]], linetype = "dashed", linewidth = 0.4))
 
 ggplotly(p_forest, tooltip = "text") %>%
-  layout(legend = list(orientation = "h", x = 0.5, y = -0.3, xanchor = "center"), margin = list(b = 120)) %>%
-  config(displaylogo = FALSE)
+  layout(legend = list(orientation = "h", x = 0, xanchor = "left", y = 1.02, yanchor = "bottom"), margin = list(t = 90, b = 120)) %>%
+  con_fuente(y = -0.28)
 ```
 
 **Resultados que difieren de lo esperado.** Al controlar simultáneamente por todas las variables aparecen tres resultados que no coinciden con el análisis descriptivo y que merecen discusión:
@@ -2075,42 +2059,41 @@ punto_optimo_y <- roc_logit$sensitivities[punto_optimo_idx]
 plot_ly(roc_data_logit, type = "scatter", mode = "lines") %>%
   add_trace(
     x = ~FalsosPositivos, y = ~Sensibilidad,
-    fill = "tozeroy", fillcolor = "rgba(250,219,216,0.6)",
-    line = list(color = "#c0392b", width = 3),
+    fill = "tozeroy", fillcolor = "rgba(44,107,184,0.10)",
+    line = list(color = PAL[["azul"]], width = 3),
     name = "Curva ROC",
     hoverinfo = "text",
     text = ~paste("1-Especificidad:", round(FalsosPositivos, 3), "<br>Sensibilidad:", round(Sensibilidad, 3))
   ) %>%
   add_trace(
     x = c(0, 1), y = c(0, 1), type = "scatter", mode = "lines",
-    line = list(color = "grey60", dash = "dash", width = 1.5),
+    line = list(color = PAL[["gris_claro"]], dash = "dash", width = 1.5),
     name = "Clasificador aleatorio", hoverinfo = "none"
   ) %>%
   add_trace(
     x = punto_optimo_x, y = punto_optimo_y, type = "scatter", mode = "markers",
-    marker = list(color = "#922b21", size = 12, line = list(color = "white", width = 2)),
+    marker = list(color = PAL[["ambar"]], size = 13, line = list(color = PAL[["navy"]], width = 2)),
     name = "Umbral óptimo (Youden)",
     hoverinfo = "text",
     text = paste("Umbral:", round(umbral, 3), "<br>1-Especificidad:", round(punto_optimo_x, 3),
                  "<br>Sensibilidad:", round(punto_optimo_y, 3))
   ) %>%
   estilo_plotly(
-    "Figura 12. Curva ROC del modelo Logit (conjunto de prueba)",
+    "Figura 12. Curva ROC del modelo Logit",
     "1 - Especificidad (tasa de falsos positivos)",
-    "Sensibilidad (tasa de verdaderos positivos)"
+    "Sensibilidad",
+    subtitulo = "Conjunto de prueba; el punto marca el umbral óptimo de Youden estimado en el entrenamiento"
   ) %>%
   layout(
     xaxis = list(range = c(0, 1)),
     yaxis = list(range = c(0, 1.02)),
     annotations = list(
-      list(x = 0.65, y = 0.3, text = paste("<b>AUC =", auc_logit, "</b>"), showarrow = FALSE,
-           font = list(size = 16, color = "#922b21"), bgcolor = "rgba(255,255,255,0.8)",
-           bordercolor = "#c0392b", borderwidth = 1, borderpad = 4),
-      list(x = 0.65, y = 0.2, text = paste("<b>Umbral óptimo =", round(umbral, 3), "</b>"), showarrow = FALSE,
-           font = list(size = 14, color = "#922b21"), bgcolor = "rgba(255,255,255,0.8)",
-           bordercolor = "#c0392b", borderwidth = 1, borderpad = 4),
-      list(x = 1, y = -0.32, text = fuente_datos, showarrow = FALSE, xref = "paper", yref = "paper",
-           xanchor = "right", font = list(size = 10, color = SC[["secondary_red"]]))
+      list(x = 0.97, y = 0.22, xanchor = "right", text = paste("<b>AUC =", auc_logit, "</b>"), showarrow = FALSE,
+           font = list(family = fuente_titulos, size = 22, color = PAL[["azul"]])),
+      list(x = 0.97, y = 0.1, xanchor = "right", text = paste("Umbral óptimo =", round(umbral, 3)), showarrow = FALSE,
+           font = list(family = fuente_texto, size = 14, color = PAL[["gris"]])),
+      list(x = 0, y = -0.34, text = fuente_datos, showarrow = FALSE, xref = "paper", yref = "paper",
+           xanchor = "left", font = list(family = fuente_texto, size = 11, color = PAL[["gris"]]))
     )
   )
 ```
@@ -2140,20 +2123,21 @@ result <- t(sapply(co, performa, prob = p_hat, ref = test$Acceso_95, postarget =
 
 plot_ly(
   result, x = ~Umbral, y = ~Valor, color = ~Métrica,
-  colors = c("Sensibilidad" = "#FF0000", "Exactitud" = "#FFD100", "Precision" = "#FF9999", "Especificidad" = "#990000"),
+  colors = c("Sensibilidad" = PAL[["azul"]], "Exactitud" = PAL[["teal"]], "Precision" = PAL[["morado"]], "Especificidad" = PAL[["naranja"]]),
   type = "scatter", mode = "lines", line = list(width = 3),
   hoverinfo = "text",
   text = ~paste("Métrica:", Métrica, "<br>Umbral:", round(Umbral, 3), "<br>Valor:", round(Valor, 3))
 ) %>%
   add_segments(
     x = umbral, xend = umbral, y = 0, yend = 1,
-    line = list(color = "#c0392b", dash = "dash", width = 2),
+    line = list(color = PAL[["ambar"]], dash = "dash", width = 2.5),
     name = "Umbral óptimo", inherit = FALSE
   ) %>%
   estilo_plotly(
     "Figura 13. Desempeño del modelo Logit según el umbral de decisión",
-    "Umbral de decisión",
-    "Valor de la métrica"
+    "Umbral de probabilidad",
+    "",
+    subtitulo = "Métricas en el conjunto de prueba para distintos puntos de corte"
   ) %>%
   layout(yaxis = list(range = c(0, 1.02)))
 ```
@@ -2231,16 +2215,15 @@ comparacion_integral %>%
     col.names = c("Métrica", "KNN (class)", "KNN (caret)", "Logit", "Mejor (KNN caret vs Logit)")
   ) %>%
   kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
+    bootstrap_options = c("hover", "condensed"),
     full_width = FALSE,
-    font_size = 13,
+    font_size = 14,
     position = "center"
   ) %>%
-  row_spec(0, background = "#c0392b", color = "white", bold = TRUE) %>%
-  row_spec(c(1, 3, 9), background = "#f9ebea") %>%
-  column_spec(1, bold = TRUE, width = "6cm") %>%
+  row_spec(c(1, 3, 4, 9), background = PAL[["celeste"]]) %>%
+  column_spec(1, bold = TRUE, color = PAL[["navy"]], width = "6cm") %>%
   column_spec(2:4, width = "2.5cm") %>%
-  column_spec(5, bold = TRUE, color = SC[["dark_red"]]) %>%
+  column_spec(5, bold = TRUE, color = ifelse(ganador == "Logit", PAL[["azul"]], ifelse(ganador == "Empate", PAL[["gris"]], PAL[["teal"]]))) %>%
   footnote(
     general = "Clase positiva: 'Si' (acceso >= 95%). Elaboración propia con base en OWID y Banco Mundial (2000-2022).",
     general_title = "Nota: ",
@@ -2269,7 +2252,8 @@ data.frame(
   Conclusión = c(
     ifelse(delong$p.value < 0.05, "Diferencia significativa al 5%", "No hay diferencia significativa al 5%"),
     ifelse(mcnemar_modelos$p.value < 0.05, "Diferencia significativa al 5%", "No hay diferencia significativa al 5%")
-  )
+  ),
+  row.names = NULL
 ) %>%
   tabla_estilo(
     "Tabla 16. Pruebas estadísticas para comparar los modelos KNN (caret) y Logit",
@@ -2295,10 +2279,10 @@ roc_comparada <- bind_rows(
 auc_knn <- round(as.numeric(auc(roc_knn)), 4)
 auc_class <- round(as.numeric(auc(roc_class)), 4)
 
-plot_ly(colors = c("KNN (class)" = "#FF9999", "KNN (caret)" = "#922b21", "Logit" = "#FFD100")) %>%
+plot_ly(colors = col_modelos) %>%
   add_trace(
     x = c(0, 1), y = c(0, 1), type = "scatter", mode = "lines",
-    line = list(dash = "dash", color = "#b0b0b0", width = 1), name = "Clasificador aleatorio"
+    line = list(dash = "dash", color = PAL[["gris_claro"]], width = 1.2), name = "Clasificador aleatorio"
   ) %>%
   add_trace(
     data = roc_comparada, x = ~FPR, y = ~TPR, color = ~Modelo,
@@ -2307,22 +2291,23 @@ plot_ly(colors = c("KNN (class)" = "#FF9999", "KNN (caret)" = "#922b21", "Logit"
     text = ~paste0(Modelo, "<br>FPR: ", round(FPR, 3), "<br>TPR: ", round(TPR, 3))
   ) %>%
   estilo_plotly(
-    "Figura 14. Curvas ROC comparadas",
+    "Figura 14. Curvas ROC de los tres modelos",
     "Tasa de falsos positivos (1 - Especificidad)",
-    "Tasa de verdaderos positivos (Sensibilidad)"
+    "Sensibilidad",
+    subtitulo = "Conjunto de prueba: 46 países que no participaron en el entrenamiento"
   ) %>%
   layout(
     xaxis = list(range = c(0, 1)),
     yaxis = list(range = c(0, 1.02)),
     annotations = list(
-      list(x = 0.7, y = 0.35, text = paste("AUC KNN (class) =", auc_class), showarrow = FALSE,
-           font = list(color = "#FF9999", size = 14)),
-      list(x = 0.7, y = 0.25, text = paste("AUC KNN (caret) =", auc_knn), showarrow = FALSE,
-           font = list(color = "#922b21", size = 14)),
-      list(x = 0.7, y = 0.15, text = paste("AUC Logit =", auc_logit), showarrow = FALSE,
-           font = list(color = "#B8860B", size = 14)),
-      list(x = 1, y = -0.32, text = fuente_datos, showarrow = FALSE, xref = "paper", yref = "paper",
-           xanchor = "right", font = list(size = 10, color = SC[["secondary_red"]]))
+      list(x = 0.97, y = 0.34, xanchor = "right", text = paste("<b>KNN (class)</b>  AUC =", auc_class), showarrow = FALSE,
+           font = list(family = fuente_texto, color = col_modelos[["KNN (class)"]], size = 14)),
+      list(x = 0.97, y = 0.24, xanchor = "right", text = paste("<b>KNN (caret)</b>  AUC =", auc_knn), showarrow = FALSE,
+           font = list(family = fuente_texto, color = col_modelos[["KNN (caret)"]], size = 14)),
+      list(x = 0.97, y = 0.14, xanchor = "right", text = paste("<b>Logit</b>  AUC =", auc_logit), showarrow = FALSE,
+           font = list(family = fuente_texto, color = col_modelos[["Logit"]], size = 14)),
+      list(x = 0, y = -0.34, text = fuente_datos, showarrow = FALSE, xref = "paper", yref = "paper",
+           xanchor = "left", font = list(family = fuente_texto, size = 11, color = PAL[["gris"]]))
     )
   )
 ```
@@ -2339,12 +2324,12 @@ metricas_comparacion <- comparacion_integral %>%
 
 plot_ly(
   metricas_comparacion, x = ~Metrica, y = ~Valor, color = ~Modelo,
-  colors = c("KNN (class)" = "#FF9999", "KNN (caret)" = "#922b21", "Logit" = "#FFD100"),
+  colors = col_modelos,
   type = "bar",
-  text = ~sprintf("%.3f", Valor), textposition = "outside",
+  text = ~sprintf("%.2f", Valor), textposition = "outside", textfont = list(size = 10, color = PAL[["gris"]]),
   hovertemplate = "%{x}<br>%{y:.4f}<extra></extra>"
 ) %>%
-  estilo_plotly("Figura 15. Comparación de métricas entre modelos", "", "Valor") %>%
+  estilo_plotly("Figura 15. Comparación de métricas entre modelos", "", "", subtitulo = "Valores en el conjunto de prueba (1 = desempeño perfecto)") %>%
   layout(barmode = "group", yaxis = list(range = c(0, 1.1)))
 ```
 
@@ -2422,7 +2407,7 @@ paises_transicion <- errores %>%
 
 errores %>%
   filter(Pais %in% paises_transicion) %>%
-  plot_ly(x = ~Año, color = ~Pais) %>%
+  plot_ly(x = ~Año, color = ~Pais, colors = c("#2C6BB8", "#C9592E", "#00847E", "#A2559C", "#E1A23B", "#883039", "#38AABA", "#E56E5A", "#9A5129", "#578145", "#6B7785")) %>%
   add_lines(
     y = ~Prob_logit, line = list(width = 2.5),
     text = ~paste0("<b>", Pais, "</b><br>Año: ", Año, "<br>Prob. Logit: ", round(Prob_logit, 3),
@@ -2431,12 +2416,13 @@ errores %>%
   ) %>%
   add_segments(
     x = 2000, xend = 2022, y = umbral, yend = umbral, inherit = FALSE,
-    line = list(color = "black", dash = "dash", width = 1.5), name = "Umbral óptimo"
+    line = list(color = PAL[["ambar"]], dash = "dash", width = 2.5), name = "Umbral óptimo"
   ) %>%
   estilo_plotly(
-    "Figura 16. Probabilidad estimada (Logit) en países de prueba que alcanzaron el acceso universal",
-    "Año",
-    "Probabilidad estimada de acceso >= 95%"
+    "Figura 16. Probabilidad estimada por el Logit en los países de transición",
+    "",
+    "",
+    subtitulo = "Países del conjunto de prueba que cambiaron de clase entre 2000 y 2022; probabilidad estimada de acceso >= 95%"
   ) %>%
   layout(
     yaxis = list(range = c(0, 1.02)),
@@ -2462,7 +2448,11 @@ logit_mejor_auc <- auc_c$logit >= auc_c$knn
 logit_mejor_acc <- acc_c$logit >= acc_c$knn
 ```
 
-Al ponderar todos los criterios, se recomienda el **modelo Logit** para este problema, por las siguientes razones:
+::: nota
+**Recomendación:** al ponderar todos los criterios, se recomienda el **modelo Logit** para este problema.
+:::
+
+Las razones son las siguientes:
 
 1.  **Desempeño predictivo:** `r if (logit_mejor_acc && logit_mejor_auc) "el Logit obtiene una exactitud y un AUC iguales o superiores a los del KNN" else if (logit_mejor_auc) "aunque el KNN obtiene una exactitud ligeramente mayor, el Logit obtiene un AUC superior, es decir, ordena mejor las observaciones según su probabilidad de acceso universal" else if (logit_mejor_acc) "el Logit obtiene una exactitud igual o superior a la del KNN, mientras que el AUC de ambos es muy similar" else "aunque el KNN obtiene métricas ligeramente superiores, las diferencias son pequeñas"`, `r ifelse(delong$p.value < 0.05, "y la diferencia en AUC es estadísticamente significativa", "y las diferencias entre ambos modelos no son estadísticamente significativas según la prueba de DeLong")`.
     Esto es coherente con la Figura 3: la relación entre el ingreso y el acceso tiene una forma sigmoide que el Logit captura de forma natural.
@@ -2475,7 +2465,17 @@ El KNN sigue siendo una alternativa válida y competitiva, útil para capturar p
 
 # Conclusiones
 
-::: academic-card
+```{r cifras conclusiones, include = FALSE}
+dec <- function(x, d = 3) format(round(as.numeric(x), d), nsmall = d, decimal.mark = ",")
+```
+
+<div class="cifras">
+<div class="cifra"><span class="valor">`r fmt(acc_c$logit)`</span><span class="etiqueta">exactitud del Logit en países nunca vistos</span></div>
+<div class="cifra"><span class="valor">`r dec(auc_c$logit)`</span><span class="etiqueta">AUC del Logit (KNN caret: `r dec(auc_c$knn)`)</span></div>
+<div class="cifra"><span class="valor">`r fmt(sen_c$knn)`</span><span class="etiqueta">sensibilidad del KNN, el que mejor detecta el acceso universal</span></div>
+<div class="cifra"><span class="valor">`r fmt(esp_c$logit)`</span><span class="etiqueta">especificidad del Logit, el que mejor detecta a los rezagados</span></div>
+</div>
+
 El presente estudio tuvo como objetivo desarrollar y comparar modelos de clasificación supervisada (KNN y regresión logística) para predecir si un país tiene acceso a la electricidad para al menos el 95% de su población, a partir de variables económicas, demográficas y geográficas, utilizando información de `r n_distinct(Base_datos$Codigo)` países entre 2000 y 2022.
 
 **Sobre los determinantes del acceso universal.** El análisis descriptivo y el modelo Logit confirman que el acceso universal a la electricidad es, ante todo, un reflejo del nivel de desarrollo económico y de la estructura territorial de la población.
@@ -2490,11 +2490,14 @@ Estos resultados muestran la importancia de analizar las variables de forma conj
 Estos resultados son especialmente robustos porque la evaluación se hizo sobre **países que no participaron en el entrenamiento** y porque los hiperparámetros (k en KNN y el umbral en Logit) se seleccionaron sin usar el conjunto de prueba.
 Las diferencias entre los dos modelos son pequeñas, pero el Logit ofrece la ventaja decisiva de la interpretabilidad, por lo que es el modelo recomendado.
 
-**¿El modelo ajustado logró responder al objetivo de la investigación?**
-Sí.
+::: respuesta
+¿El modelo logró responder al objetivo de la investigación?
+
+**Sí.**
 El objetivo era construir y comparar modelos capaces de clasificar a los países según hayan alcanzado o no el acceso (casi) universal a la electricidad, e identificar las variables asociadas a esta condición.
 Los modelos clasifican correctamente cerca de `r round(10 * max(acc_c$knn, acc_c$logit))` de cada 10 observaciones de países nunca vistos, con un AUC superior a `r floor(100 * min(auc_c$knn, auc_c$logit)) / 100`, lo que demuestra que las variables seleccionadas contienen una señal muy fuerte sobre el acceso a la electricidad.
 Además, el modelo Logit permitió cuantificar la dirección y la magnitud del efecto de cada variable, cumpliendo también el propósito explicativo.
+:::
 
 No obstante, deben reconocerse algunas limitaciones:
 
@@ -2513,9 +2516,8 @@ No obstante, deben reconocerse algunas limitaciones:
 
 En síntesis, el aprendizaje supervisado demostró ser una herramienta eficaz para clasificar el acceso universal a la electricidad.
 La alta precisión de los modelos, unida a la interpretabilidad del Logit, permite no solo predecir qué países han alcanzado la meta, sino también entender por qué otros siguen rezagados, aportando evidencia útil para el diseño de políticas orientadas a cumplir el ODS 7.
-:::
 
-# Bibliografia
+# Bibliografía {#bibliografia}
 
 -   Banco Mundial (2025). World Development Indicators: Access to electricity (% of population) [EG.ELC.ACCS.ZS]. <https://data.worldbank.org/indicator/EG.ELC.ACCS.ZS>
 
@@ -2542,232 +2544,43 @@ La alta precisión de los modelos, unida a la interpretabilidad del Logit, permi
 -   Venables, W. N., & Ripley, B. D. (2002). Modern Applied Statistics with S (4ª ed.). Springer. (Paquete class).
 
 -   Wooldridge, J. M. (2012). Introductory Econometrics: A Modern Approach (5ª ed.). South-Western Cengage Learning.
-:::
 
-------------------------------------------------------------------------
+<div class="cita">
+<b class="titulo-cita">CÓMO CITAR ESTE TRABAJO</b>
+Aguirre, J. S., Barros, A., Muñoz, D. y Portilla, J. C. (`r format(Sys.Date(), "%Y")`). *¿Qué separa a los países con electricidad para todos del resto? Clasificación del acceso universal a la electricidad con KNN y regresión logística*. Gestión de Datos, Facultad de Ingeniería, Universidad del Valle.
+</div>
 
-::: academic-footer
-**Universidad del Valle** \| *Facultad de ingenieria* \| Gestion de datos
-:::
+<div class="pie">
+<div><b>UNIVERSIDAD DEL VALLE</b>Facultad de Ingeniería<br>Curso de Gestión de Datos</div>
+<div><b>PROFESOR</b>Orlando Joaqui Barandica</div>
+<div><b>DATOS</b>Our World in Data · Banco Mundial (WDI) · Gapminder</div>
+<div><b>HERRAMIENTAS</b>R · caret · class · pROC · plotly · kableExtra · DT</div>
+</div>
+
+<div id="barra-progreso"></div>
 
 ```{=html}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Smooth scroll para navegación académica
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-      e.preventDefault();
-      const target = document.querySelector(this.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
+// Barra de progreso de lectura
+window.addEventListener('scroll', function () {
+  var h = document.documentElement;
+  var avance = h.scrollTop / (h.scrollHeight - h.clientHeight) * 100;
+  var barra = document.getElementById('barra-progreso');
+  if (barra) barra.style.width = avance + '%';
+});
+
+// Etiquetas en español para el menú global de código
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function () {
+    var traducir = { 'rmd-show-all-code': 'Mostrar todo el código', 'rmd-hide-all-code': 'Ocultar todo el código' };
+    Object.keys(traducir).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = traducir[id];
     });
-  });
-  
-  // Resaltado de sección activa en TOC
-  const sections = document.querySelectorAll('h2, h3');
-  const navLinks = document.querySelectorAll('.tocify-item a');
-  
-  window.addEventListener('scroll', () => {
-    let current = '';
-    sections.forEach(section => {
-      const sectionTop = section.offsetTop;
-      const sectionHeight = section.clientHeight;
-      if (scrollY >= (sectionTop - 100)) {
-        current = section.getAttribute('id');
-      }
-    });
-    
-    navLinks.forEach(link => {
-      link.classList.remove('active');
-      if (link.getAttribute('href') === `#${current}`) {
-        link.classList.add('active');
-      }
-    });
-  });
+    var boton = document.getElementById('rmd-source-code') || document.querySelector('.btn-group.pull-right > .btn');
+    if (boton) boton.innerHTML = 'Código <span class="caret"></span>';
+  }, 300);
 });
 </script>
 ```
 
-```{=html}
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  // Crear botón global
-  const globalToggle = document.createElement("button");
-  globalToggle.className = "global-code-toggle";
-  globalToggle.innerHTML = "Control de Código";
-  document.body.appendChild(globalToggle);
-
-  // Estado global
-  let allCodeVisible = true;
-
-  // Función para crear controles individuales
-  function initializeCodeToggles() {
-    const codeChunks = document.querySelectorAll("pre.r, pre.python, pre.sourceCode");
-    
-    codeChunks.forEach((chunk, index) => {
-      // Crear contenedor
-      const container = document.createElement("div");
-      container.className = "code-chunk";
-      
-      // Crear header
-      const header = document.createElement("div");
-      header.className = "code-header";
-      
-      // Obtener el lenguaje del código
-      const language = chunk.className.includes("r") ? "R" : 
-                      chunk.className.includes("python") ? "Python" : "Código";
-      
-      header.innerHTML = `
-        <div class="chunk-title">
-          <span class="code-status visible"></span>
-          ${language} - Chunk ${index + 1}
-        </div>
-        <div class="toggle-icon">▼</div>
-      `;
-      
-      // Crear contenido
-      const content = document.createElement("div");
-      content.className = "code-content expanded";
-      content.appendChild(chunk.cloneNode(true));
-      
-      // Reemplazar el chunk original
-      chunk.parentNode.replaceChild(container, chunk);
-      container.appendChild(header);
-      container.appendChild(content);
-      
-      // Agregar evento de click
-      header.addEventListener("click", function() {
-        const isExpanded = content.classList.contains("expanded");
-        const icon = this.querySelector(".toggle-icon");
-        const status = this.querySelector(".code-status");
-        
-        if (isExpanded) {
-          content.classList.remove("expanded");
-          content.classList.add("collapsed");
-          icon.classList.add("rotated");
-          status.classList.remove("visible");
-          status.classList.add("hidden");
-        } else {
-          content.classList.remove("collapsed");
-          content.classList.add("expanded");
-          icon.classList.remove("rotated");
-          status.classList.remove("hidden");
-          status.classList.add("visible");
-        }
-      });
-    });
-  }
-
-  // Función para toggle global
-  function toggleAllCode() {
-    const codeContents = document.querySelectorAll(".code-content");
-    const headers = document.querySelectorAll(".code-header");
-    
-    if (allCodeVisible) {
-      // Ocultar todo
-      codeContents.forEach(content => {
-        content.classList.remove("expanded");
-        content.classList.add("collapsed");
-      });
-      headers.forEach(header => {
-        const icon = header.querySelector(".toggle-icon");
-        const status = header.querySelector(".code-status");
-        icon.classList.add("rotated");
-        status.classList.remove("visible");
-        status.classList.add("hidden");
-      });
-      globalToggle.innerHTML = "Mostrar Todo el Código";
-      allCodeVisible = false;
-    } else {
-      // Mostrar todo
-      codeContents.forEach(content => {
-        content.classList.remove("collapsed");
-        content.classList.add("expanded");
-      });
-      headers.forEach(header => {
-        const icon = header.querySelector(".toggle-icon");
-        const status = header.querySelector(".code-status");
-        icon.classList.remove("rotated");
-        status.classList.remove("hidden");
-        status.classList.add("visible");
-      });
-      globalToggle.innerHTML = "Ocultar Todo el Código";
-      allCodeVisible = true;
-    }
-  }
-
-  // Inicializar
-  initializeCodeToggles();
-  
-  // Evento para el botón global
-  globalToggle.addEventListener("click", toggleAllCode);
-
-  // Agregar contenedor de controles globales
-  const globalControls = document.createElement("div");
-  globalControls.className = "code-toggle-container";
-  globalControls.innerHTML = `
-    <h4 style="margin-top: 0; color: var(--primary-red);">Controles de Visualización de Código</h4>
-    <p style="margin-bottom: 1rem; color: var(--dark-red);">
-      Utilice los siguientes controles para gestionar la visualización del código en este documento
-    </p>
-    <button class="code-toggle-btn" onclick="toggleAllCode()">Mostrar/Ocultar Todo el Código</button>
-    <button class="code-toggle-btn secondary" onclick="expandAllCode()">Expandir Todo</button>
-    <button class="code-toggle-btn secondary" onclick="collapseAllCode()">Contraer Todo</button>
-  `;
-
-  // Insertar después del primer h1
-  const firstHeading = document.querySelector("h1");
-  if (firstHeading) {
-    firstHeading.parentNode.insertBefore(globalControls, firstHeading.nextSibling);
-  }
-
-  // Funciones globales para los botones
-  window.toggleAllCode = toggleAllCode;
-  window.expandAllCode = function() {
-    const codeContents = document.querySelectorAll(".code-content");
-    const headers = document.querySelectorAll(".code-header");
-    
-    codeContents.forEach(content => {
-      content.classList.remove("collapsed");
-      content.classList.add("expanded");
-    });
-    headers.forEach(header => {
-      const icon = header.querySelector(".toggle-icon");
-      const status = header.querySelector(".code-status");
-      icon.classList.remove("rotated");
-      status.classList.remove("hidden");
-      status.classList.add("visible");
-    });
-    globalToggle.innerHTML = "Ocultar Todo el Código";
-    allCodeVisible = true;
-  };
-
-  window.collapseAllCode = function() {
-    const codeContents = document.querySelectorAll(".code-content");
-    const headers = document.querySelectorAll(".code-header");
-    
-    codeContents.forEach(content => {
-      content.classList.remove("expanded");
-      content.classList.add("collapsed");
-    });
-    headers.forEach(header => {
-      const icon = header.querySelector(".toggle-icon");
-      const status = header.querySelector(".code-status");
-      icon.classList.add("rotated");
-      status.classList.remove("visible");
-      status.classList.add("hidden");
-    });
-    globalToggle.innerHTML = "Mostrar Todo el Código";
-    allCodeVisible = false;
-  };
-});
-</script>
-```
-
-```{=html}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-```
